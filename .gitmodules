@@ -1,0 +1,4 @@
+[submodule "projects/erp/backend/go_api"]
+	path = projects/erp/backend/go_api
+	url = https://github.com/2b-simple/go-backend-api
+	branch = develop_bot
