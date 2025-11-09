@@ -1,0 +1,1295 @@
+openapi: 3.0.3
+info:
+  title: PROD001 - Product Management API
+  version: 1.0.0
+  description: |
+    RESTful API for Product Management (PROD001) following 2BSimpleCore API Guidelines.
+    
+    **Features:**
+    - Product lifecycle management (Draft → In Review → Approved → Active → Inactive → Obsolete)
+    - RBAC with 4 roles (Viewer, Editor, Approver, Admin)
+    - UOM conversions with cycle detection
+    - Vendor mappings with preferred vendor constraints
+    - Barcode management
+    - Import/Export (CSV/XLSX)
+    - Audit trail
+    
+  contact:
+    name: 2BSimple Core Team
+    email: dev@2bsimple.com
+
+servers:
+  - url: https://api.2bsimple.com/api/v1
+    description: Production
+  - url: https://staging-api.2bsimple.com/api/v1
+    description: Staging
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Products
+    description: Product CRUD operations
+  - name: Categories
+    description: Product categories
+  - name: Lifecycle
+    description: Product lifecycle state transitions
+  - name: Import/Export
+    description: Bulk operations
+  - name: Audit
+    description: Audit trail
+
+security:
+  - bearerAuth: []
+
+paths:
+  /products:
+    get:
+      tags: [Products]
+      summary: List products with search and filters
+      description: Get paginated list of products with optional search and filtering
+      operationId: listProducts
+      parameters:
+        - name: q
+          in: query
+          description: Search in code, name, or barcode
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [Draft, In Review, Approved, Active, Inactive, Obsolete]
+          style: form
+          explode: true
+        - name: type
+          in: query
+          description: Filter by product type
+          schema:
+            type: string
+            enum: [Stock, NonStock, Service]
+        - name: category_id
+          in: query
+          description: Filter by category ID
+          schema:
+            type: integer
+            format: int64
+        - name: tracking
+          in: query
+          description: Filter by tracking method
+          schema:
+            type: string
+            enum: [None, Lot, Serial]
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sort
+          in: query
+          description: Sort field (prefix with - for descending)
+          schema:
+            type: string
+            default: "-updated_at"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductListItem'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                  error:
+                    type: 'null'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Products]
+      summary: Create new product
+      description: Create product with status=Draft
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Product'
+                  meta:
+                    type: 'null'
+                  error:
+                    type: 'null'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      operationId: getProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Product'
+                  meta:
+                    type: 'null'
+                  error:
+                    type: 'null'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      tags: [Products]
+      summary: Update product (partial)
+      description: Partially update product fields
+      operationId: updateProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Product'
+                  meta:
+                    type: 'null'
+                  error:
+                    type: 'null'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Products]
+      summary: Delete product (soft delete)
+      operationId: deleteProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '204':
+          description: No Content
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/submit:
+    post:
+      tags: [Lifecycle]
+      summary: Submit product for review
+      description: Change status from Draft to In Review
+      operationId: submitProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/InvalidState'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/approve:
+    post:
+      tags: [Lifecycle]
+      summary: Approve product
+      description: Change status from In Review to Approved
+      operationId: approveProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/InvalidState'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/reject:
+    post:
+      tags: [Lifecycle]
+      summary: Reject product
+      description: Change status from In Review back to Draft
+      operationId: rejectProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/activate:
+    post:
+      tags: [Lifecycle]
+      summary: Activate product
+      description: Change status from Approved to Active
+      operationId: activateProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/InvalidState'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/deactivate:
+    post:
+      tags: [Lifecycle]
+      summary: Deactivate product
+      description: Change status from Active to Inactive
+      operationId: deactivateProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/obsolete:
+    post:
+      tags: [Lifecycle]
+      summary: Mark product as obsolete
+      description: Change status to Obsolete (irreversible terminal state)
+      operationId: obsoleteProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, acknowledge_irreversible]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                acknowledge_irreversible:
+                  type: boolean
+                  enum: [true]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/import:
+    post:
+      tags: [Import/Export]
+      summary: Import products from CSV/XLSX
+      description: Bulk import products with validation
+      operationId: importProducts
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                mode:
+                  type: string
+                  enum: [preview, commit]
+                  default: preview
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      mode:
+                        type: string
+                      created:
+                        type: integer
+                      updated:
+                        type: integer
+                      errors:
+                        type: integer
+                      report_url:
+                        type: string
+                  meta:
+                    type: 'null'
+                  error:
+                    type: 'null'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/export:
+    get:
+      tags: [Import/Export]
+      summary: Export products to CSV/XLSX
+      description: Export filtered products
+      operationId: exportProducts
+      parameters:
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [csv, xlsx]
+        - name: filters
+          in: query
+          description: JSON-encoded filter object
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}/audit:
+    get:
+      tags: [Audit]
+      summary: Get product audit trail
+      description: Get chronological audit history
+      operationId: getProductAudit
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEntry'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                  error:
+                    type: 'null'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      operationId: listCategories
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                  error:
+                    type: 'null'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Categories]
+      summary: Create category
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, error]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Category'
+                  meta:
+                    type: 'null'
+                  error:
+                    type: 'null'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ProductId:
+      name: id
+      in: path
+      required: true
+      description: Product ID
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    Product:
+      type: object
+      required: [id, code, name, type, status, base_uom, tracking, version, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 255
+        type:
+          type: string
+          enum: [Stock, NonStock, Service]
+        category_id:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum: [Draft, In Review, Approved, Active, Inactive, Obsolete]
+        base_uom:
+          type: string
+          maxLength: 16
+        purchase_uom:
+          type: string
+          maxLength: 16
+          nullable: true
+        tracking:
+          type: string
+          enum: [None, Lot, Serial]
+        weight:
+          type: number
+          format: decimal
+          nullable: true
+        length:
+          type: number
+          format: decimal
+          nullable: true
+        width:
+          type: number
+          format: decimal
+          nullable: true
+        height:
+          type: number
+          format: decimal
+          nullable: true
+        weight_uom:
+          type: string
+          nullable: true
+        volume_uom:
+          type: string
+          nullable: true
+        tax_code_id:
+          type: string
+          nullable: true
+        gl_inventory_acct_id:
+          type: string
+          nullable: true
+        gl_expense_acct_id:
+          type: string
+          nullable: true
+        cost_method:
+          type: string
+          enum: [Standard, MovingAvg]
+          nullable: true
+        standard_cost:
+          type: number
+          format: decimal
+          nullable: true
+        is_hazardous:
+          type: boolean
+        shelf_life_days:
+          type: integer
+          nullable: true
+        remarks:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        barcodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductBarcode'
+        uom_conversions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductUomConversion'
+        vendors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVendor'
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductDocument'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProductListItem:
+      type: object
+      required: [id, code, name, type, status, base_uom, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [Stock, NonStock, Service]
+        category_id:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum: [Draft, In Review, Approved, Active, Inactive, Obsolete]
+        base_uom:
+          type: string
+        tracking:
+          type: string
+          enum: [None, Lot, Serial]
+        updated_at:
+          type: string
+          format: date-time
+
+    ProductCreate:
+      type: object
+      required: [code, name, type, base_uom]
+      properties:
+        code:
+          type: string
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 255
+        type:
+          type: string
+          enum: [Stock, NonStock, Service]
+        category_id:
+          type: integer
+          format: int64
+        base_uom:
+          type: string
+        purchase_uom:
+          type: string
+        tracking:
+          type: string
+          enum: [None, Lot, Serial]
+          default: None
+        weight:
+          type: number
+        length:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        weight_uom:
+          type: string
+        volume_uom:
+          type: string
+        tax_code_id:
+          type: string
+        gl_inventory_acct_id:
+          type: string
+        gl_expense_acct_id:
+          type: string
+        cost_method:
+          type: string
+          enum: [Standard, MovingAvg]
+        standard_cost:
+          type: number
+        is_hazardous:
+          type: boolean
+          default: false
+        shelf_life_days:
+          type: integer
+        remarks:
+          type: string
+        barcodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductBarcodeCreate'
+        uom_conversions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductUomConversionCreate'
+        vendors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVendorCreate'
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [Stock, NonStock, Service]
+        category_id:
+          type: integer
+          format: int64
+        base_uom:
+          type: string
+        purchase_uom:
+          type: string
+        tracking:
+          type: string
+          enum: [None, Lot, Serial]
+        weight:
+          type: number
+        length:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        tax_code_id:
+          type: string
+        gl_inventory_acct_id:
+          type: string
+        gl_expense_acct_id:
+          type: string
+        cost_method:
+          type: string
+          enum: [Standard, MovingAvg]
+        standard_cost:
+          type: number
+        is_hazardous:
+          type: boolean
+        shelf_life_days:
+          type: integer
+        remarks:
+          type: string
+
+    ProductBarcode:
+      type: object
+      required: [id, product_id, symbology, value, is_primary]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        symbology:
+          type: string
+          enum: [EAN13, UPC, QR, Code128]
+        value:
+          type: string
+        is_primary:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProductBarcodeCreate:
+      type: object
+      required: [symbology, value, is_primary]
+      properties:
+        symbology:
+          type: string
+          enum: [EAN13, UPC, QR, Code128]
+        value:
+          type: string
+        is_primary:
+          type: boolean
+
+    ProductUomConversion:
+      type: object
+      required: [id, product_id, from_uom, to_uom, factor]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        from_uom:
+          type: string
+        to_uom:
+          type: string
+        factor:
+          type: number
+          format: decimal
+
+    ProductUomConversionCreate:
+      type: object
+      required: [from_uom, to_uom, factor]
+      properties:
+        from_uom:
+          type: string
+        to_uom:
+          type: string
+        factor:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+
+    ProductVendor:
+      type: object
+      required: [id, product_id, vendor_id, is_preferred]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        vendor_id:
+          type: string
+        vendor_sku:
+          type: string
+        is_preferred:
+          type: boolean
+        moq:
+          type: integer
+        lead_time_days:
+          type: integer
+        price_hint:
+          type: number
+          format: decimal
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+
+    ProductVendorCreate:
+      type: object
+      required: [vendor_id, is_preferred]
+      properties:
+        vendor_id:
+          type: string
+        vendor_sku:
+          type: string
+        is_preferred:
+          type: boolean
+        moq:
+          type: integer
+        lead_time_days:
+          type: integer
+        price_hint:
+          type: number
+        currency:
+          type: string
+
+    ProductImage:
+      type: object
+      required: [id, product_id, url, is_primary]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        url:
+          type: string
+          format: uri
+        alt_text:
+          type: string
+        is_primary:
+          type: boolean
+
+    ProductDocument:
+      type: object
+      required: [id, product_id, file_url, doc_type]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        file_url:
+          type: string
+          format: uri
+        doc_type:
+          type: string
+          enum: [Spec, MSDS, Cert, Other]
+
+    Category:
+      type: object
+      required: [id, code, name, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CategoryCreate:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 255
+        parent_id:
+          type: integer
+          format: int64
+
+    AuditEntry:
+      type: object
+      required: [id, product_id, event_timestamp, actor, role, action]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        event_timestamp:
+          type: string
+          format: date-time
+        actor:
+          type: string
+        role:
+          type: string
+          enum: [Master_Data_Admin, Procurement, Warehouse, Finance, Admin]
+        action:
+          type: string
+        reason:
+          type: string
+        diff:
+          type: object
+
+    PaginationMeta:
+      type: object
+      required: [page, limit, total]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    SuccessResponse:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          $ref: '#/components/schemas/Product'
+        meta:
+          type: 'null'
+        error:
+          type: 'null'
+
+    ErrorResponse:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          type: 'null'
+        meta:
+          type: 'null'
+        error:
+          type: object
+          required: [message, code]
+          properties:
+            message:
+              type: string
+            code:
+              type: string
+            detail:
+              type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "invalid product id"
+              code: "MISSING_FIELD"
+              detail: "The code field is required"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "unauthorized access"
+              code: "UNAUTHORIZED"
+              detail: "Missing or invalid bearer token"
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "insufficient permissions"
+              code: "FORBIDDEN"
+              detail: "User role does not have approval permission"
+
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "product not found"
+              code: "NOT_FOUND"
+              detail: "Product with ID 123 does not exist"
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "duplicate entry"
+              code: "DUPLICATE_ENTRY"
+              detail: "Product code 'WIDGET-001' already exists"
+
+    InvalidState:
+      description: Invalid State
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "invalid state transition"
+              code: "INVALID_STATE"
+              detail: "Cannot activate product without GL/Tax mapping"
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            data: null
+            meta: null
+            error:
+              message: "internal server error"
+              code: "INTERNAL_ERROR"
+              detail: "An unexpected error occurred"

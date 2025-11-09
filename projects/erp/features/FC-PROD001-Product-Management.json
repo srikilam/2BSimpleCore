@@ -1,0 +1,752 @@
+{
+  "feature_code": "PROD001",
+  "feature_name": "Product Management",
+  "feature_name_th": "การจัดการสินค้า",
+  "module": "Inventory",
+  "system": "ERP Backend (Golang)",
+  "frd_path": "projects/erp/docs/frd/FRD-Product-Management.md",
+  "base_path": "/erp/master/products",
+  "menu_trail": "ERP > ข้อมูลมาสเตอร์ > สินค้า",
+
+  "business_context": "ระบบจัดการสินค้าเป็นแคตาล็อกกลางที่ควบคุมข้อมูลสินค้าทั้งหมดในองค์กร โดยบังคับให้มีการแมป GL, Tax, และ Base UOM ก่อนเปิดใช้งาน เพื่อลดความไม่สอดคล้องของข้อมูลใน P2P Process ระบบรองรับ lifecycle management แบบ Draft → In Review → Approved → Active → Deactivate → Obsolete พร้อม workflow การอนุมัติ, การจัดการ UOM conversions (ป้องกัน cycle), การแมป vendor (preferred vendor ต่อสกุลเงิน), การนำเข้า/ส่งออก CSV/XLSX, และการพิมพ์ฉลากบาร์โค้ด เป้าหมายคือให้เวลา create → active ≤ 2 วันทำการ และ duplicate barcode < 0.5%",
+
+  "business_objectives": [
+    "มีแคตาล็อกสินค้ากลางที่บังคับการแมป GL, Tax, Base UOM ก่อนสถานะ Active",
+    "ลดอัตราความไม่สอดคล้องของ UOM/GL/Tax/Vendor ในเอกสาร P2P ให้เหลือน้อยกว่า 1% ภายใน 3 เดือน",
+    "ตรวจจับและป้องกันกรณี UOM cycle และ barcode ซ้ำ/ไม่ถูกต้อง (duplicate barcode rate < 0.5%)",
+    "ทำให้เวลาจากการสร้างสินค้า (create) ถึงใช้งานได้ (active) ≤ 2 วันทำการ (P80)",
+    "สนับสนุน lifecycle การควบคุมพร้อม workflow อนุมัติและ audit trail ครบถ้วน"
+  ],
+
+  "kpis": [
+    {
+      "name": "Catalog completeness",
+      "metric": "GL/Tax/UOM/vendor set ≥ 98%"
+    },
+    {
+      "name": "Duplicate/invalid barcode rate",
+      "metric": "< 0.5%"
+    },
+    {
+      "name": "New product lead time",
+      "metric": "create → active ≤ 2 business days (P80)"
+    },
+    {
+      "name": "Search latency",
+      "metric": "p95 ≤ 300ms"
+    },
+    {
+      "name": "UOM cycles prevention",
+      "metric": "100% (no cyclic conversions allowed)"
+    }
+  ],
+
+  "user_stories": [
+    {
+      "id": "US-PROD001-01",
+      "title": "สร้างและส่งตรวจสินค้าใหม่",
+      "as_a": "Master Data Admin",
+      "i_want": "สร้างสินค้าใหม่ กรอกข้อมูลพื้นฐาน (รหัส, ชื่อ, ประเภท, UOM, บาร์โค้ด) และส่งตรวจเพื่อขออนุมัติ",
+      "so_that": "สินค้าสามารถเข้าสู่กระบวนการอนุมัติและเปิดใช้งานได้",
+      "journey": "J1 - Create & Submit Product",
+      "priority": "Must Have",
+      "story_points": 8,
+      "acceptance_criteria": [
+        "ระบบต้องบังคับให้กรอก code, name, type, base_uom ก่อนบันทึก Draft",
+        "ต้องมีบาร์โค้ดหลัก (is_primary=true) อย่างน้อย 1 รายการก่อนส่งตรวจ (Submit)",
+        "ระบบตรวจสอบความซ้ำของ code และ (symbology, value) ของบาร์โค้ด คืน 409 CONFLICT หากซ้ำ",
+        "เมื่อกด Save Draft ระบบสร้าง Product ด้วย status=Draft พร้อม public ID รูปแบบ PRD-xxxxxxxxxx และคืน 201 + ETag",
+        "เมื่อกด Submit ระบบเปลี่ยน status เป็น In Review และปล่อย event product.submitted",
+        "UI ต้องแสดง validation error inline หากขาดฟิลด์บังคับหรือบาร์โค้ดซ้ำ พร้อม focus ไปที่ฟิลด์แรกที่ error",
+        "ต้องใช้ X-Idempotency-Key ในการ POST create เพื่อป้องกัน duplicate request"
+      ]
+    },
+    {
+      "id": "US-PROD001-02",
+      "title": "ตรวจสอบและอนุมัติสินค้า",
+      "as_a": "Finance Approver",
+      "i_want": "ตรวจสอบการแมป GL/Tax ของสินค้าที่ส่งมาตรวจ และอนุมัติเพื่อให้สามารถ Activate ได้",
+      "so_that": "สินค้าที่ Active มีการแมป GL/Tax ที่ถูกต้องครบถ้วน ลดข้อผิดพลาดทางการเงิน",
+      "journey": "J2 - Approve & Activate Product",
+      "priority": "Must Have",
+      "story_points": 5,
+      "acceptance_criteria": [
+        "สามารถเข้าหน้า Product Detail (status=In Review) และเปิด tab Tax/GL ดูค่า gl_inventory_acct_id, gl_expense_acct_id, tax_code_id",
+        "ระบบต้องตรวจสอบว่า GL account และ Tax code มีอยู่ใน external masters (คืน 404 หากไม่พบ) ก่อนอนุมัติ",
+        "เมื่อกด Approve ระบบเปลี่ยน status เป็น Approved พร้อมบันทึก audit (actor, role, timestamp, comment) และปล่อย event product.approved",
+        "ต้องใช้ If-Match (ETag) และ X-Idempotency-Key ในการ POST :approve เพื่อป้องกัน concurrent approve และ retry",
+        "หากขาด GL/Tax หรือไม่ valid ระบบคืน 422 INVALID_STATE พร้อมรายละเอียดฟิลด์ที่ขาด",
+        "หากผู้ใช้ไม่มีสิทธิ์ Approve ระบบคืน 403 FORBIDDEN พร้อมข้อความ 'คุณไม่มีสิทธิ์อนุมัติ'",
+        "UI ต้องแสดง modal ยืนยันการอนุมัติ และ disable ปุ่ม Approve หลังกดแล้ว"
+      ]
+    },
+    {
+      "id": "US-PROD001-03",
+      "title": "เปิดใช้งานสินค้า (Activate)",
+      "as_a": "Master Data Admin",
+      "i_want": "เปิดใช้งานสินค้าที่ผ่านการอนุมัติแล้ว (Approved → Active)",
+      "so_that": "สินค้าสามารถใช้งานใน PR/PO/GRN และระบบอื่น ๆ ได้",
+      "journey": "J2 - Approve & Activate Product",
+      "priority": "Must Have",
+      "story_points": 3,
+      "acceptance_criteria": [
+        "เมื่อกด Activate ระบบตรวจสอบว่าไม่มี open PR/PO/GRN ที่อ้างอิงสินค้านี้ (คืน 409 CONFLICT หากมี)",
+        "เมื่อผ่าน validation ระบบเปลี่ยน status เป็น Active พร้อมปล่อย event product.activated",
+        "ต้องใช้ If-Match (ETag) และ X-Idempotency-Key ในการ POST :activate",
+        "หากมีเอกสารอ้างอิงเปิดอยู่ ระบบต้องคืน 409 พร้อมข้อความ 'มีเอกสารอ้างอิงเปิดอยู่: PR-xxxxx'",
+        "UI ต้องแสดง confirmation modal 'ยืนยันการเปิดใช้งานสินค้า' พร้อม toast success 'เปิดใช้สินค้าแล้ว' เมื่อสำเร็จ",
+        "หลัง Activate สินค้าจะปรากฏใน picker/dropdown ของ PR/PO services"
+      ]
+    },
+    {
+      "id": "US-PROD001-04",
+      "title": "จัดการการแปลงหน่วย (UOM Conversions)",
+      "as_a": "Master Data Admin",
+      "i_want": "เพิ่ม/แก้ไขการแปลงหน่วยของสินค้า (เช่น 1 L = 1000 ML) โดยระบบป้องกันการสร้างวงจร (cycle)",
+      "so_that": "ระบบสามารถแปลงหน่วยได้อย่างถูกต้องและไม่เกิด infinite loop",
+      "journey": "J3 - Maintain UOM & Conversions",
+      "priority": "Must Have",
+      "story_points": 5,
+      "acceptance_criteria": [
+        "เปิด Product Detail → UOM tab เห็นตาราง UOM conversions (from_uom, to_uom, factor)",
+        "สามารถเพิ่ม/แก้ไข conversion โดย factor ต้อง > 0 และมี precision decimal(18,6)",
+        "ระบบต้องตรวจสอบว่ากราฟ conversion เป็น acyclic (ไม่มี cycle) หากมี cycle คืน 400 VALIDATION_FAILED พร้อมข้อความ 'พบวงจรการแปลงหน่วย (cyclic)'",
+        "ห้ามมี (product_row_id, from_uom, to_uom) ซ้ำ (unique constraint)",
+        "หากสินค้าอยู่ใน status=Active และแก้ไขฟิลด์ critical (base_uom) ระบบต้อง re-submit (สร้าง revision) และเปลี่ยน status เป็น In Review",
+        "UI ต้องแสดง warning หากตรวจพบ cycle และ highlight แถวที่เกี่ยวข้อง",
+        "ต้องใช้ If-Match (ETag) ในการ PATCH update"
+      ]
+    },
+    {
+      "id": "US-PROD001-05",
+      "title": "จัดการข้อมูลผู้ขาย (Vendor Mapping)",
+      "as_a": "Procurement Buyer",
+      "i_want": "เพิ่ม/แก้ไขข้อมูลผู้ขายของสินค้า (vendor_id, SKU, preferred, moq, lead_time, price_hint)",
+      "so_that": "ระบบ PR/PO สามารถเลือก preferred vendor และแสดง moq/lead_time ให้ผู้ใช้เห็น",
+      "journey": "J4 - Add/Manage Vendors",
+      "priority": "Must Have",
+      "story_points": 3,
+      "acceptance_criteria": [
+        "เปิด Product Detail → Vendors tab เห็นตารางผู้ขาย",
+        "สามารถเพิ่มแถวผู้ขาย โดยระบุ vendor_id (ตรวจสอบกับ Vendor master คืน 404 หากไม่มี), vendor_sku, preferred, moq, lead_time_days, price_hint, currency",
+        "ระบบบังคับให้มี preferred vendor เพียง 1 รายต่อ product+currency (UNIQUE PARTIAL INDEX) คืน 409 CONFLICT หากมีมากกว่า 1",
+        "Editor (Procurement) มีสิทธิ์เพิ่ม/แก้ไข vendor rows ได้ แต่ไม่สามารถแก้ไข product header หรือ critical fields",
+        "ต้องใช้ If-Match (ETag) ในการ PATCH update และปล่อย event product.vendor.updated",
+        "UI ต้องแสดง validation error 'มี preferred vendor ต่อ product+currency ได้เพียง 1 รายการ' หากละเมิด constraint"
+      ]
+    },
+    {
+      "id": "US-PROD001-06",
+      "title": "ยกเลิกการใช้งานสินค้าชั่วคราว (Deactivate)",
+      "as_a": "Finance Approver / Admin",
+      "i_want": "ยกเลิกการใช้งานสินค้าชั่วคราว (Active → Inactive)",
+      "so_that": "ป้องกันการใช้สินค้าใน PR/PO ใหม่ แต่ยังสามารถ reactivate ได้ในภายหลัง",
+      "journey": "J5 - Edit / Deactivate / Obsolete",
+      "priority": "Should Have",
+      "story_points": 3,
+      "acceptance_criteria": [
+        "เมื่อกด Deactivate ระบบตรวจสอบว่าไม่มี open PR/PO/GRN (คืน 409 หากมี เว้นแต่มี controller override flag)",
+        "เมื่อผ่าน guard ระบบเปลี่ยน status เป็น Inactive พร้อมปล่อย event product.deactivated",
+        "ต้องใช้ If-Match (ETag), X-Idempotency-Key และ X-Audit-Reason (recommended) ในการ POST :deactivate",
+        "UI ต้องแสดง confirmation modal 'ยืนยันการยกเลิกการใช้งาน' พร้อมให้กรอก reason",
+        "หากมีเอกสารอ้างอิง ระบบแสดง error 'มี PR/PO/GRN เปิดอยู่: PR-xxxxx' พร้อม CTA 'ดู PR' หรือ option override (ถ้ามีสิทธิ์)",
+        "Audit trail ต้องบันทึก actor, reason, timestamp"
+      ]
+    },
+    {
+      "id": "US-PROD001-07",
+      "title": "เลิกใช้สินค้าถาวร (Obsolete)",
+      "as_a": "Master Data Admin",
+      "i_want": "เลิกใช้สินค้าถาวร (Active/Inactive → Obsolete) โดยยืนยันว่าไม่มี on-hand และไม่มีเอกสารเปิด",
+      "so_that": "สินค้าที่หมดอายุ/ยกเลิกผลิตจะถูก mark เป็น Obsolete อย่างถาวร (irreversible)",
+      "journey": "J5 - Edit / Deactivate / Obsolete",
+      "priority": "Should Have",
+      "story_points": 3,
+      "acceptance_criteria": [
+        "เมื่อกด Obsolete ระบบตรวจสอบ on_hand == 0 และ no open documents (คืน 409 CONFLICT หากไม่ผ่าน)",
+        "เมื่อผ่าน guard ระบบเปลี่ยน status เป็น Obsolete (irreversible) พร้อมปล่อย event product.obsoleted",
+        "ต้องใช้ If-Match (ETag), X-Idempotency-Key และ X-Audit-Reason (required) ในการ POST :obsolete",
+        "UI ต้องแสดง confirmation modal พร้อม checkbox 'รับทราบว่าการกระทำนี้ไม่สามารถย้อนกลับ' (acknowledge_irreversible)",
+        "หาก on_hand > 0 ระบบแสดง error 'ไม่สามารถเลิกใช้: มีสต็อกคงเหลือ 10 units'",
+        "หลัง Obsolete ห้ามแก้ไขหรือเปลี่ยนสถานะ (terminal state)",
+        "Audit trail ต้องบันทึก final_snapshot"
+      ]
+    },
+    {
+      "id": "US-PROD001-08",
+      "title": "นำเข้าสินค้าจาก CSV/XLSX",
+      "as_a": "Master Data Admin",
+      "i_want": "นำเข้าสินค้าจาก CSV/XLSX แบบ bulk พร้อม preview และ validation ก่อน commit",
+      "so_that": "สามารถสร้างหรืออัปเดตสินค้าจำนวนมาก (10k rows) ได้อย่างรวดเร็ว",
+      "journey": "J6 - Import / Export / Label",
+      "priority": "Should Have",
+      "story_points": 8,
+      "acceptance_criteria": [
+        "เปิด Import modal/drawer → upload CSV/XLSX file → ระบบ parse และแสดง preview พร้อม validation errors",
+        "ต้องมีคอลัมน์บังคับ: code, name, base_uom (หากขาดคืน 400 VALIDATION_FAILED)",
+        "ระบบตรวจสอบ duplicate code, barcode, UOM cycle ก่อน commit",
+        "เมื่อกด Commit ระบบใช้ X-Idempotency-Key และ mode=upsert (update existing หรือ create new)",
+        "คืน import report: { created: 120, updated: 30, errors: 2, report_url } พร้อม download link CSV error report",
+        "Import success rate สำหรับ 10k rows ต้องเป็นไปตาม SLA (ยังไม่ระบุตัวเลข)",
+        "UI ต้องแสดง progress bar และ allow cancel during import"
+      ]
+    },
+    {
+      "id": "US-PROD001-09",
+      "title": "ส่งออกรายการสินค้าเป็น CSV/XLSX",
+      "as_a": "Viewer / Admin",
+      "i_want": "ส่งออกรายการสินค้าตาม filters ที่เลือก (status, type, category, vendor, etc.)",
+      "so_that": "สามารถนำข้อมูลไปวิเคราะษหรือใช้งานใน external tools",
+      "journey": "J6 - Import / Export / Label",
+      "priority": "Should Have",
+      "story_points": 3,
+      "acceptance_criteria": [
+        "กด Export บน List toolbar → เลือก format (CSV/XLSX) → ระบบ export ตาม filters ปัจจุบัน",
+        "หากข้อมูลน้อย ระบบคืน 200 + file binary ทันที",
+        "หากข้อมูลมาก ระบบคืน 202 + job_id และให้ client poll job status (job polling endpoint ต้องเพิ่ม)",
+        "ต้องใช้ scope product.export และมี rate limit 120 requests/minute",
+        "หาก rate limit เกิน คืน 429 TOO_MANY_REQUESTS พร้อม Retry-After header",
+        "UI ต้องแสดง toast 'ดาวน์โหลดสำเร็จ' หรือ banner 'การส่งออกกำลังดำเนินการ' สำหรับ async job"
+      ]
+    },
+    {
+      "id": "US-PROD001-10",
+      "title": "พิมพ์ฉลากบาร์โค้ด (Label PDF)",
+      "as_a": "Warehouse Viewer",
+      "i_want": "เลือก template ฉลากและพิมพ์ฉลากบาร์โค้ดเป็น PDF",
+      "so_that": "สามารถติดฉลากบนกล่องสินค้าหรือ pallet สำหรับ receiving/putaway",
+      "journey": "J6 - Import / Export / Label",
+      "priority": "Should Have",
+      "story_points": 5,
+      "acceptance_criteria": [
+        "กด Print Label (จาก List/Detail) → เปิด modal → เลือก template (dropdown)",
+        "ระบบตรวจสอบว่า template รองรับ symbology ของสินค้า (คืน 422 หากไม่รองรับ)",
+        "เมื่อกด Generate → GET /{id}:label?template={id} → ระบบคืน PDF (200) หรือ job_id (202) หากเป็น async",
+        "UI ต้องแสดง PDF preview (iframe) พร้อมปุ่ม Download PDF และ Open original (fallback)",
+        "หาก template ไม่รองรับ แสดงข้อความ 'เทมเพลตไม่รองรับ symbology นี้' และให้เลือก template อื่น",
+        "ต้องใช้ scope product.label และ all roles สามารถพิมพ์ได้"
+      ]
+    },
+    {
+      "id": "US-PROD001-11",
+      "title": "ค้นหาและกรองรายการสินค้า",
+      "as_a": "ผู้ใช้ทุกบทบาท",
+      "i_want": "ค้นหาและกรองรายการสินค้าตาม code/name/barcode, status, type, category, vendor, tracking",
+      "so_that": "สามารถหาสินค้าที่ต้องการได้รวดเร็ว (p95 ≤ 300ms)",
+      "journey": "General - List/Search",
+      "priority": "Must Have",
+      "story_points": 5,
+      "acceptance_criteria": [
+        "หน้า Product List มี search bar (q: search code/name/barcode) และ filters: status[], type, category_id, vendor_id, tracking, updated_from, updated_to",
+        "ระบบรองรับ pagination (page, page_size default=25) และ sort (default: -updated_at)",
+        "Search latency p95 ต้อง ≤ 300ms",
+        "แสดงผลลัพธ์เป็นตาราง (compact density) พร้อมคอลัมน์: Code (link to detail), Name, Type (badge), Category, Base UOM, Tracking (badge), Preferred Vendor, Status (badge), Updated At",
+        "Row actions ตาม RBAC: Open, Edit, Submit, Approve, Activate, Deactivate, Obsolete, Print Label (แสดง/ซ่อนตาม role และ status)",
+        "Empty state แสดงข้อความ 'ไม่มีสินค้าที่ตรงกับเงื่อนไขนี้'",
+        "ต้องใช้ scope product.read"
+      ]
+    },
+    {
+      "id": "US-PROD001-12",
+      "title": "ดูประวัติการแก้ไข (Audit Trail)",
+      "as_a": "ผู้ใช้ทุกบทบาท",
+      "i_want": "ดูประวัติการแก้ไขสินค้า (who/when/what) รวมถึงการอนุมัติและการเปลี่ยนสถานะ",
+      "so_that": "สามารถตรวจสอบและ audit ได้ว่าใครเป็นผู้แก้ไข/อนุมัติ เมื่อไหร่ ทำอะไร",
+      "journey": "General - Audit",
+      "priority": "Must Have",
+      "story_points": 3,
+      "acceptance_criteria": [
+        "เปิด Product Detail → Audit tab → แสดงตาราง audit entries",
+        "แต่ละ entry แสดง: timestamp, actor (email), role, action (create/submit/approve/activate/update/etc.), reason/comment, diff (optional)",
+        "รองรับ pagination (page, page_size) และ filter (from, to datetime)",
+        "ทุก state change และ critical field edit ต้องบันทึก audit entry",
+        "GET /{id}/audit คืนข้อมูล audit_entries[] พร้อม meta (page, page_size, total)",
+        "ต้องใช้ scope product.read"
+      ]
+    },
+    {
+      "id": "US-PROD001-13",
+      "title": "ปฏิเสธการอนุมัติสินค้า (Reject)",
+      "as_a": "Finance Approver",
+      "i_want": "ปฏิเสธสินค้าที่ส่งมาตรวจ (In Review → Draft) พร้อมระบุเหตุผล",
+      "so_that": "Master Data Admin สามารถแก้ไขและส่งตรวจใหม่ได้",
+      "journey": "J2 - Approve & Activate Product",
+      "priority": "Must Have",
+      "story_points": 2,
+      "acceptance_criteria": [
+        "เมื่อกด Reject ระบบเปิด modal ให้กรอก reason (required)",
+        "ต้องใช้ If-Match (ETag) และ X-Audit-Reason (required) ในการ POST :reject",
+        "เมื่อ reject ระบบเปลี่ยน status เป็น Draft พร้อมบันทึก audit (reason) และปล่อย event product.rejected",
+        "หากไม่กรอก reason ระบบคืน 400 VALIDATION_FAILED 'เหตุผลต้องไม่ว่าง'",
+        "UI ต้องแสดง toast 'ส่งกลับให้ผู้ขอแก้ไข' และ focus ไปที่ textarea reason",
+        "Audit tab ต้องแสดง reason ที่ระบุ"
+      ]
+    }
+  ],
+
+  "acceptance_criteria": [
+    "ระบบต้องรองรับ 6 status: Draft, In Review, Approved, Active, Inactive, Obsolete",
+    "ต้องบังคับ GL, Tax, Base UOM ก่อน Activate (คืน 422 หากขาด)",
+    "UOM conversion graph ต้องเป็น acyclic (ไม่มี cycle) คืน 400 หากมี cycle",
+    "Barcode (symbology, value) ต้อง unique คืน 409 CONFLICT หากซ้ำ",
+    "Product code ต้อง unique และ immutable เมื่อ status=Active",
+    "Preferred vendor ต้องมีเพียง 1 รายต่อ product+currency",
+    "ทุก state change และ critical edit ต้องบันทึก audit trail (actor, role, action, reason, timestamp, diff)",
+    "API ต้องใช้ Bearer JWT authentication + RBAC (4 roles: Viewer, Editor, Approver, Admin)",
+    "ต้องใช้ If-Match (ETag) สำหรับ PATCH และ state-change operations (คืน 412 หาก mismatch)",
+    "ต้องใช้ X-Idempotency-Key สำหรับ create/import/state-change operations",
+    "Search latency p95 ต้อง ≤ 300ms",
+    "Duplicate barcode rate ต้อง < 0.5%",
+    "New product lead time (create → active) ต้อง ≤ 2 business days (P80)",
+    "ระบบต้องปล่อย events: product.created, product.submitted, product.approved, product.activated, product.deactivated, product.obsoleted, product.updated, product.rejected",
+    "Deactivate/Obsolete ต้องตรวจสอบ open PR/PO/GRN และ on_hand (คืน 409 CONFLICT หากไม่ผ่าน)",
+    "Import ต้องรองรับ 10k rows พร้อม preview/validation/error report",
+    "Export ต้องรองรับ sync (200 + file) และ async (202 + job_id)",
+    "Label generation ต้องตรวจสอบ template compatibility กับ symbology (คืน 422 หากไม่รองรับ)",
+    "Rate limit: 120 requests/minute per client (คืน 429 + Retry-After หากเกิน)",
+    "Error responses ต้องมีรูปแบบ: { code, message, details[], trace_id }"
+  ],
+
+  "data_entities": [
+    {
+      "name": "Product",
+      "table": "products",
+      "description": "Main product master",
+      "key_attributes": ["row_id (PK UUID)", "id (PRD-xxxxxxxxxx)", "code (unique)", "name", "type", "status", "base_uom", "tracking", "gl_inventory_acct_id", "gl_expense_acct_id", "tax_code_id"],
+      "relationships": ["has many ProductBarcode", "has many ProductUomConv", "has many ProductVendor", "has many ProductImage", "has many ProductDoc", "has many ProductAudit", "belongs to Category"]
+    },
+    {
+      "name": "ProductUomConv",
+      "table": "product_uom_convs",
+      "description": "UOM conversions",
+      "key_attributes": ["row_id (PK)", "id (PUC-xxxxxxxxxx)", "product_row_id (FK)", "from_uom", "to_uom", "factor"],
+      "constraints": ["UNIQUE (product_row_id, from_uom, to_uom)", "CHECK (factor > 0)", "Acyclic graph (service layer)"]
+    },
+    {
+      "name": "ProductVendor",
+      "table": "product_vendors",
+      "description": "Vendor mappings",
+      "key_attributes": ["row_id (PK)", "id (PVN-xxxxxxxxxx)", "product_row_id (FK)", "vendor_id", "vendor_sku", "preferred", "moq", "lead_time_days", "price_hint", "currency"],
+      "constraints": ["UNIQUE INDEX (product_row_id, currency) WHERE preferred=true"]
+    },
+    {
+      "name": "ProductBarcode",
+      "table": "product_barcodes",
+      "description": "Barcodes",
+      "key_attributes": ["row_id (PK)", "id (PBC-xxxxxxxxxx)", "product_row_id (FK)", "symbology", "value", "is_primary"],
+      "constraints": ["UNIQUE (symbology, value)", "At least one is_primary required before submit"]
+    },
+    {
+      "name": "ProductImage",
+      "table": "product_images",
+      "description": "Product images",
+      "key_attributes": ["row_id (PK)", "id (PIM-xxxxxxxxxx)", "product_row_id (FK)", "url", "alt_text", "is_primary"]
+    },
+    {
+      "name": "ProductDoc",
+      "table": "product_docs",
+      "description": "Product documents",
+      "key_attributes": ["row_id (PK)", "id (PDC-xxxxxxxxxx)", "product_row_id (FK)", "file_url", "doc_type"]
+    },
+    {
+      "name": "Category",
+      "table": "categories",
+      "description": "Product categories (hierarchical)",
+      "key_attributes": ["row_id (PK)", "id (CAT-xxxxxxxxxx)", "code (unique)", "name", "parent_row_id (self FK)"],
+      "relationships": ["has many Product", "has many Category (children)", "belongs to Category (parent)"]
+    },
+    {
+      "name": "ProductAudit",
+      "table": "product_audits",
+      "description": "Audit trail",
+      "key_attributes": ["row_id (PK)", "id (PAD-xxxxxxxxxx)", "product_row_id (FK)", "timestamp", "actor", "role", "action", "reason", "diff (jsonb)"]
+    }
+  ],
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/erp/master/products",
+      "description": "List products (search/filter/pagination)",
+      "scope": "product.read",
+      "user_stories": ["US-PROD001-11"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products",
+      "description": "Create product (Draft)",
+      "scope": "product.write",
+      "user_stories": ["US-PROD001-01"]
+    },
+    {
+      "method": "GET",
+      "path": "/erp/master/products/{id}",
+      "description": "Get product detail",
+      "scope": "product.read",
+      "user_stories": ["US-PROD001-02", "US-PROD001-04", "US-PROD001-05", "US-PROD001-12"]
+    },
+    {
+      "method": "PATCH",
+      "path": "/erp/master/products/{id}",
+      "description": "Update product (partial)",
+      "scope": "product.write",
+      "user_stories": ["US-PROD001-04", "US-PROD001-05"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/{id}/submit",
+      "description": "Submit for review (Draft → In Review)",
+      "scope": "product.write",
+      "user_stories": ["US-PROD001-01"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/{id}/approve",
+      "description": "Approve product (In Review → Approved)",
+      "scope": "product.approve",
+      "user_stories": ["US-PROD001-02"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/{id}/reject",
+      "description": "Reject product (In Review → Draft)",
+      "scope": "product.approve",
+      "user_stories": ["US-PROD001-13"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/{id}/activate",
+      "description": "Activate product (Approved → Active)",
+      "scope": "product.status",
+      "user_stories": ["US-PROD001-03"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/{id}/deactivate",
+      "description": "Deactivate product (Active → Inactive)",
+      "scope": "product.status",
+      "user_stories": ["US-PROD001-06"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/{id}/obsolete",
+      "description": "Obsolete product (→ Obsolete, irreversible)",
+      "scope": "product.status",
+      "user_stories": ["US-PROD001-07"]
+    },
+    {
+      "method": "GET",
+      "path": "/erp/master/products/{id}/label",
+      "description": "Generate/download label PDF",
+      "scope": "product.label",
+      "user_stories": ["US-PROD001-10"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/import",
+      "description": "Import products (CSV/XLSX)",
+      "scope": "product.import",
+      "user_stories": ["US-PROD001-08"]
+    },
+    {
+      "method": "GET",
+      "path": "/erp/master/products/export",
+      "description": "Export products (CSV/XLSX)",
+      "scope": "product.export",
+      "user_stories": ["US-PROD001-09"]
+    },
+    {
+      "method": "GET",
+      "path": "/erp/master/products/{id}/audit",
+      "description": "Get audit trail",
+      "scope": "product.read",
+      "user_stories": ["US-PROD001-12"]
+    },
+    {
+      "method": "POST",
+      "path": "/erp/master/products/bulk",
+      "description": "Bulk actions (activate/deactivate/etc.)",
+      "scope": "product.bulk",
+      "user_stories": []
+    }
+  ],
+
+  "linked_features": [
+    {
+      "feature_code": "GL001",
+      "feature_name": "GL Master",
+      "relationship": "upstream",
+      "description": "Product ต้องตรวจสอบ gl_inventory_acct_id และ gl_expense_acct_id กับ GL Master ก่อน Approve/Activate"
+    },
+    {
+      "feature_code": "TAX001",
+      "feature_name": "Tax Master",
+      "relationship": "upstream",
+      "description": "Product ต้องตรวจสอบ tax_code_id กับ Tax Master ก่อน Approve/Activate"
+    },
+    {
+      "feature_code": "VND001",
+      "feature_name": "Vendor Master",
+      "relationship": "upstream",
+      "description": "ProductVendor ต้องตรวจสอบ vendor_id กับ Vendor Master"
+    },
+    {
+      "feature_code": "CAT001",
+      "feature_name": "Category Master",
+      "relationship": "upstream",
+      "description": "Product ต้องตรวจสอบ category_id กับ Category Master"
+    },
+    {
+      "feature_code": "PR001",
+      "feature_name": "Purchase Requisition",
+      "relationship": "downstream",
+      "description": "PR services consume product.activated events และใช้ Active products ในการสร้าง PR items"
+    },
+    {
+      "feature_code": "PO001",
+      "feature_name": "Purchase Order",
+      "relationship": "downstream",
+      "description": "PO services consume product.activated events และใช้ preferred vendor, moq, lead_time, price_hint"
+    },
+    {
+      "feature_code": "GRN001",
+      "feature_name": "Goods Receipt Note",
+      "relationship": "downstream",
+      "description": "GRN services consume product.activated events และใช้ tracking flags (lot/serial/expiry) สำหรับ receiving"
+    },
+    {
+      "feature_code": "WMS001",
+      "feature_name": "Warehouse Management",
+      "relationship": "downstream",
+      "description": "WMS/Putaway services consume product.activated/updated/obsoleted events และตรวจสอบ on_hand ก่อน Obsolete"
+    },
+    {
+      "feature_code": "BI001",
+      "feature_name": "Reporting & BI",
+      "relationship": "downstream",
+      "description": "BI services consume product.* events สำหรับ analytics และ reporting"
+    }
+  ],
+
+  "state_diagram": {
+    "states": ["Draft", "In Review", "Approved", "Active", "Inactive", "Obsolete"],
+    "initial_state": "Draft",
+    "terminal_states": ["Obsolete"],
+    "transitions": [
+      {
+        "from": "Draft",
+        "to": "In Review",
+        "action": "submit",
+        "api": "POST /{id}:submit",
+        "user_story": "US-PROD001-01"
+      },
+      {
+        "from": "In Review",
+        "to": "Approved",
+        "action": "approve",
+        "api": "POST /{id}:approve",
+        "user_story": "US-PROD001-02"
+      },
+      {
+        "from": "In Review",
+        "to": "Draft",
+        "action": "reject",
+        "api": "POST /{id}:reject",
+        "user_story": "US-PROD001-13"
+      },
+      {
+        "from": "Approved",
+        "to": "Active",
+        "action": "activate",
+        "api": "POST /{id}:activate",
+        "user_story": "US-PROD001-03"
+      },
+      {
+        "from": "Active",
+        "to": "Inactive",
+        "action": "deactivate",
+        "api": "POST /{id}:deactivate",
+        "user_story": "US-PROD001-06"
+      },
+      {
+        "from": "Active",
+        "to": "Obsolete",
+        "action": "obsolete",
+        "api": "POST /{id}:obsolete",
+        "user_story": "US-PROD001-07"
+      },
+      {
+        "from": "Inactive",
+        "to": "Obsolete",
+        "action": "obsolete",
+        "api": "POST /{id}:obsolete",
+        "user_story": "US-PROD001-07"
+      },
+      {
+        "from": "Active",
+        "to": "In Review",
+        "action": "revision_submit",
+        "api": "POST /{id}:submit",
+        "user_story": "US-PROD001-04",
+        "note": "Critical field edit requires re-approval"
+      }
+    ]
+  },
+
+  "events": [
+    {
+      "name": "product.created",
+      "triggered_by": "POST /erp/master/products",
+      "user_story": "US-PROD001-01",
+      "consumers": ["Search index"]
+    },
+    {
+      "name": "product.submitted",
+      "triggered_by": "POST /erp/master/products/{id}:submit",
+      "user_story": "US-PROD001-01",
+      "consumers": ["Notification service", "Approvers"]
+    },
+    {
+      "name": "product.approved",
+      "triggered_by": "POST /erp/master/products/{id}:approve",
+      "user_story": "US-PROD001-02",
+      "consumers": ["Notification service", "PR/PO services"]
+    },
+    {
+      "name": "product.rejected",
+      "triggered_by": "POST /erp/master/products/{id}:reject",
+      "user_story": "US-PROD001-13",
+      "consumers": ["Notification service", "Product owner"]
+    },
+    {
+      "name": "product.activated",
+      "triggered_by": "POST /erp/master/products/{id}:activate",
+      "user_story": "US-PROD001-03",
+      "consumers": ["PR/PO services", "GRN/Putaway", "Reporting/BI", "Search index"]
+    },
+    {
+      "name": "product.deactivated",
+      "triggered_by": "POST /erp/master/products/{id}:deactivate",
+      "user_story": "US-PROD001-06",
+      "consumers": ["PR/PO services", "Notification service"]
+    },
+    {
+      "name": "product.obsoleted",
+      "triggered_by": "POST /erp/master/products/{id}:obsolete",
+      "user_story": "US-PROD001-07",
+      "consumers": ["PR/PO services", "GRN/Putaway", "Reporting/BI"]
+    },
+    {
+      "name": "product.updated",
+      "triggered_by": "PATCH /erp/master/products/{id}",
+      "user_story": "US-PROD001-04, US-PROD001-05",
+      "consumers": ["Search index", "Reporting/BI"]
+    },
+    {
+      "name": "product.vendor.updated",
+      "triggered_by": "PATCH /erp/master/products/{id} (vendor changes)",
+      "user_story": "US-PROD001-05",
+      "consumers": ["PR/PO services"]
+    }
+  ],
+
+  "rbac": {
+    "roles": [
+      {
+        "name": "Viewer",
+        "name_th": "ผู้ดู (คลังสินค้า)",
+        "permissions": ["product.read", "product.export", "product.label"],
+        "user_stories": ["US-PROD001-10", "US-PROD001-11", "US-PROD001-12"]
+      },
+      {
+        "name": "Editor",
+        "name_th": "ผู้แก้ไข (จัดซื้อ)",
+        "permissions": ["product.read", "product.vendor.write", "product.export"],
+        "conditional_permissions": ["product.write (partial)", "product.submit", "product.import"],
+        "user_stories": ["US-PROD001-01", "US-PROD001-05", "US-PROD001-11"]
+      },
+      {
+        "name": "Approver",
+        "name_th": "ผู้อนุมัติ (การเงิน)",
+        "permissions": ["product.read", "product.approve", "product.status", "product.export"],
+        "user_stories": ["US-PROD001-02", "US-PROD001-03", "US-PROD001-06", "US-PROD001-13"]
+      },
+      {
+        "name": "Admin",
+        "name_th": "ผู้ดูแลระบบ (Master Data Admin)",
+        "permissions": ["product.read", "product.write", "product.delete", "product.restore", "product.export", "product.bulk", "product.status", "product.approve", "product.import", "product.label"],
+        "user_stories": ["all"]
+      }
+    ]
+  },
+
+  "technical_notes": {
+    "database": "PostgreSQL with pgcrypto extension",
+    "primary_keys": "UUID (row_id) internal + prefixed public ID (PRD-xxxxxxxxxx)",
+    "concurrency_control": "Optimistic locking via version field + If-Match (ETag)",
+    "soft_delete": "deleted_at timestamp",
+    "indexing_strategy": "Composite indexes on (status, updated_at), unique indexes on code, barcode (symbology, value), partial unique index on preferred vendor per currency",
+    "validation_layers": [
+      "Client-side: basic required fields, format validation",
+      "API layer: RBAC, idempotency, ETag, business rules (duplicate code/barcode, UOM cycle, preferred vendor constraint)",
+      "Database: CHECK constraints, unique constraints, FK constraints, triggers (public ID generation, code immutability)"
+    ],
+    "performance_targets": {
+      "search_latency_p95": "≤ 300ms",
+      "import_batch_size": "10k rows",
+      "rate_limit": "120 requests/minute per client"
+    }
+  },
+
+  "open_questions": [
+    "Controller override mechanism: ใครมีสิทธิ์ bypass business guards (open PR/PO/GRN) และต้องมี flag/signature อย่างไร?",
+    "Import behavior: upsert vs create new revision เมื่อพบ code ซ้ำ - ต้องกำหนด policy ชัดเจน",
+    "Async job polling: endpoint สำหรับ poll job status (export/label) ยังไม่ได้กำหนด",
+    "Multi-level approval: DOA flow (sequential vs parallel) ขึ้นกับองค์กร - ต้องยืนยันกับ stakeholder",
+    "Import SLA: success rate สำหรับ 10k rows ยังไม่ระบุตัวเลข - ต้องกำหนดค่า SLA",
+    "Critical fields list: ฟิลด์ใดบ้างที่ถือเป็น critical (ต้อง re-approval เมื่อแก้ไขขณะ Active) - ปัจจุบันอ้าง base_uom, tax/GL, tracking แต่ต้องยืนยันรายการสมบูรณ์"
+  ],
+
+  "risks": [
+    {
+      "risk": "UOM cycle detection performance",
+      "description": "การตรวจจับวงจร UOM อาจช้าหากมี conversion มาก",
+      "mitigation": "Implement efficient graph traversal algorithm (DFS/BFS) และ cache conversion graph"
+    },
+    {
+      "risk": "External master availability",
+      "description": "GL/Tax/Vendor masters ไม่พร้อมใช้งานขณะ Approve/Activate",
+      "mitigation": "Implement retry with exponential backoff และ circuit breaker pattern"
+    },
+    {
+      "risk": "Import performance",
+      "description": "Import 10k rows อาจใช้เวลานาน timeout",
+      "mitigation": "Implement async job processing with queue และ progress tracking"
+    },
+    {
+      "risk": "Concurrent edits",
+      "description": "Multiple users แก้ไข product พร้อมกัน",
+      "mitigation": "Use optimistic locking (ETag + version) และแสดง merge dialog เมื่อ 412 PRECONDITION_FAILED"
+    }
+  ],
+
+  "assumptions": [
+    "มีการเข้าถึง external masters (GL, Tax, Vendor, Category) ผ่าน API",
+    "Downstream services (PR/PO, GRN) subscribe product.* events ผ่าน event bus",
+    "ระบบเป็น single company (ไม่มีการแบ่ง org/site-level visibility)",
+    "File upload (images/docs) ใช้ file service แยกต่างหาก และคืน public URL",
+    "ระบบมี idempotency layer สำหรับ X-Idempotency-Key deduplication"
+  ],
+
+  "dev_status": "in_progress",
+  "assigned_to": "DEV_TEAM_GOLANG",
+  "reviewer": "TECH_LEAD",
+  "estimated_effort": "55 story points (13 user stories)",
+  "priority": "High",
+  "target_sprint": "Sprint 2-4",
+
+  "created_at": "2025-11-09T00:00:00Z",
+  "updated_at": "2025-11-09T00:00:00Z",
+  "created_by": "Claude Architect Agent",
+  "version": "1.0.0"
+}

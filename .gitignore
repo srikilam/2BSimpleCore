@@ -1,0 +1,22 @@
+# System files
+.DS_Store
+.env
+*.log
+
+# Build & runtime
+/bin/
+/dist/
+/tmp/
+/coverage/
+/vendor/
+
+# Go
+*.exe
+*.out
+
+# Claude logs
+projects/erp/manifest/*.txt
+projects/erp/logbook/**/*.log
+
+# AI cache / test
+core/scripts/*.bak

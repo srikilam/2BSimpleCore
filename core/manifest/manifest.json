@@ -1,0 +1,7 @@
+{
+  "framework_version": "1.0",
+  "checked_at": "2025-11-02T10:00:00Z",
+  "projects": ["erp"],
+  "last_feature": "INIT",
+  "qa_status": "initialized"
+}

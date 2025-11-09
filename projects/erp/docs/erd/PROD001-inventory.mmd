@@ -1,0 +1,119 @@
+erDiagram
+    CATEGORIES ||--o{ CATEGORIES : "parent-child"
+    CATEGORIES ||--o{ PRODUCTS : "belongs to"
+    PRODUCTS ||--o{ PRODUCT_BARCODES : "has"
+    PRODUCTS ||--o{ PRODUCT_UOM_CONVERSIONS : "has"
+    PRODUCTS ||--o{ PRODUCT_VENDORS : "has"
+    PRODUCTS ||--o{ PRODUCT_IMAGES : "has"
+    PRODUCTS ||--o{ PRODUCT_DOCUMENTS : "has"
+    PRODUCTS ||--o{ PRODUCT_AUDITS : "tracks"
+
+    CATEGORIES {
+        bigserial id PK
+        varchar code UK "Unique business code"
+        varchar name "Category name"
+        bigint parent_id FK "Self-reference"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at "Soft delete"
+    }
+
+    PRODUCTS {
+        bigserial id PK
+        varchar code UK "Unique code, immutable when active"
+        varchar name "Product name"
+        varchar type "Stock, NonStock, Service"
+        bigint category_id FK
+        varchar status "Draft, In Review, Approved, Active, Inactive, Obsolete"
+        varchar base_uom "Base unit"
+        varchar purchase_uom "Purchase unit"
+        varchar tracking "None, Lot, Serial"
+        decimal weight "decimal(18,3)"
+        decimal length "decimal(18,2)"
+        decimal width "decimal(18,2)"
+        decimal height "decimal(18,2)"
+        varchar weight_uom
+        varchar volume_uom
+        varchar tax_code_id "External FK"
+        varchar gl_inventory_acct_id "External FK"
+        varchar gl_expense_acct_id "External FK"
+        varchar cost_method "Standard, MovingAvg"
+        decimal standard_cost "decimal(18,4)"
+        boolean is_hazardous
+        integer shelf_life_days
+        text remarks
+        integer version "Optimistic locking"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    PRODUCT_BARCODES {
+        bigserial id PK
+        bigint product_id FK
+        varchar symbology "EAN13, UPC, QR, Code128"
+        varchar value "Barcode value"
+        boolean is_primary
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    PRODUCT_UOM_CONVERSIONS {
+        bigserial id PK
+        bigint product_id FK
+        varchar from_uom
+        varchar to_uom
+        decimal factor "decimal(18,6)"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    PRODUCT_VENDORS {
+        bigserial id PK
+        bigint product_id FK
+        varchar vendor_id "External FK"
+        varchar vendor_sku
+        boolean is_preferred
+        integer moq
+        integer lead_time_days
+        decimal price_hint "decimal(18,4)"
+        varchar currency "ISO 4217"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    PRODUCT_IMAGES {
+        bigserial id PK
+        bigint product_id FK
+        text url
+        varchar alt_text
+        boolean is_primary
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    PRODUCT_DOCUMENTS {
+        bigserial id PK
+        bigint product_id FK
+        text file_url
+        varchar doc_type "Spec, MSDS, Cert, Other"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    PRODUCT_AUDITS {
+        bigserial id PK
+        bigint product_id FK
+        timestamptz event_timestamp
+        varchar actor
+        varchar role
+        varchar action
+        text reason
+        jsonb diff
+        timestamptz created_at
+    }
