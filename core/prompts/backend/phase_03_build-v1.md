@@ -31,7 +31,23 @@ Input Artifacts:
 
 ## 🧩 Tasks  
 1. **Models (internal/models/)**  
-   - สร้าง struct สำหรับแต่ละ entity ตาม ERD  
+  #### ขั้นตอนที่ 1: อ่าน SQL Schema (บังคับ)
+    📘 **MANDATORY:** อ่านไฟล์ SQL schema ที่สร้างใน Phase 01 ก่อนเขียน models
+
+    ```bash
+    # อ่าน schema file
+    projects/erp/backend/go_api/migrations/*_create_{{FEATURE_CODE}}_schema.sql
+
+  ขั้นตอนที่ 2: สร้าง Type Mapping
+     ⚠️ กฎสำคัญ:
+    - SQL UUID → Go uuid.UUID (ห้ามใช้ int64)
+    - SQL BOOLEAN → Go bool (ห้ามเติม Is prefix ใน Go field)
+    - SQL snake_case → Go PascalCase (แต่ JSON/DB tag ต้องเป็น snake_case)
+    - SQL FK *_row_id → Go *RowID (ไม่ใช่ *ID)
+    - SQL TIMESTAMPTZ → Go time.Time
+    - SQL DECIMAL → Go decimal.Decimal (จาก shopspring/decimal)
+   - สร้าง struct ตาม feature card
+   - ใช้ naming convention ตาม `core/conventions/naming-rules.md`
    - ใส่ `json` tag, `db` tag (snake_case), และ field ที่สัมพันธ์กับ FK  
    - ใส่ timestamp fields (`CreatedAt`, `UpdatedAt`, `DeletedAt *time.Time`)  
 

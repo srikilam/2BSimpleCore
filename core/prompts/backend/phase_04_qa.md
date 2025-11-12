@@ -3,11 +3,10 @@ Phase: 04 QA & Validation
 Agent Role: Claude QA Agent  
 System: ERP Backend (Golang + PostgreSQL, Clean Architecture)
 
-<!--
 FEATURE_NAME: Product Management
 FEATURE_CODE: PROD001
 MODULE: Inventory
--->
+
 Feature: {{FEATURE_NAME}}  
 Feature Code: {{FEATURE_CODE}}  
 Module: {{MODULE}}  

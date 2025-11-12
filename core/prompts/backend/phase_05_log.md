@@ -1,5 +1,11 @@
 --think-hard
 Phase: 05 Log & Learn
+
+FEATURE_NAME: Product Management
+FEATURE_CODE: PROD001
+MODULE: Inventory
+SPRINT: 01
+
 Feature: {{FEATURE_NAME}} ({{FEATURE_CODE}})
 Sprint: {{SPRINT}}
 System: ERP Backend (Golang)
