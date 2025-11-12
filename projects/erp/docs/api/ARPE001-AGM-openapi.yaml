@@ -1,0 +1,996 @@
+# TARGET: projects/erp/docs/api/ARPE001-AGM-openapi.yaml
+# Feature: Area Permission (ARPE001)
+# Module: AGM
+
+openapi: 3.0.3
+info:
+  title: Area Permission API
+  description: API for managing geographical areas, extension codes, and role assignments in AGM module
+  version: 1.0.0
+  contact:
+    name: 2BSimple Development Team
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+  - url: https://api.2bsimple.com/api/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Area:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        area_name:
+          type: string
+          example: "พื้นที่ภาคกลาง"
+        province_id:
+          type: string
+          example: "10"
+        district_id:
+          type: string
+          example: "1001"
+        subdistrict_id:
+          type: string
+          example: "100101"
+        postal_code:
+          type: string
+          pattern: '^\d{5}$'
+          example: "10110"
+        address_line:
+          type: string
+          nullable: true
+          example: "ถนนประชา"
+        description:
+          type: string
+          nullable: true
+          example: "ศูนย์ทดลอง"
+        status:
+          type: string
+          enum: [Active, Inactive]
+          example: "Active"
+        version:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          nullable: true
+          description: Full name of user who created this record (first_name + last_name from external_users)
+          example: "สมชาย ใจดี"
+        updated_by:
+          type: string
+          nullable: true
+          description: Full name of user who last updated this record
+          example: "สมหญิง รักดี"
+
+    ExtensionCode:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        display_code:
+          type: string
+          pattern: '^\d{4}$'
+          example: "0123"
+        area_id:
+          type: integer
+          format: int64
+          example: 1
+        area_name:
+          type: string
+          example: "พื้นที่ภาคกลาง"
+        note:
+          type: string
+          nullable: true
+          example: "สำรอง"
+        status:
+          type: string
+          enum: [EMPTY, OCCUPIED]
+          example: "EMPTY"
+        version:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          nullable: true
+          description: Full name of user who created this record (first_name + last_name from external_users)
+          example: "สมชาย ใจดี"
+        updated_by:
+          type: string
+          nullable: true
+          description: Full name of user who last updated this record
+          example: "สมหญิง รักดี"
+
+    ExtensionCodeAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        extension_code_id:
+          type: integer
+          format: int64
+        employee_id:
+          type: string
+          example: "EMP-4001"
+        area_id:
+          type: integer
+          format: int64
+        assigned_at:
+          type: string
+          format: date-time
+        assigned_by:
+          type: string
+          description: Full name of user who assigned this record
+          example: "ผู้จัดการ ระบบ"
+
+    AreaHeadAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        area_id:
+          type: integer
+          format: int64
+        employee_id:
+          type: string
+          example: "EMP-1002"
+        full_name:
+          type: string
+          example: "สมนึก ตัวอย่าง"
+        assigned_at:
+          type: string
+          format: date-time
+        assigned_by:
+          type: string
+          description: Full name of user who assigned this record
+          example: "ผู้จัดการ ระบบ"
+
+    Director:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        employee_id:
+          type: string
+          example: "EMP-0005"
+        full_name:
+          type: string
+          example: "สมชาย ตัวอย่าง"
+        email:
+          type: string
+          example: "somchai@example.com"
+        dept:
+          type: string
+          example: "Admin"
+        assigned_at:
+          type: string
+          format: date-time
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 25
+        total:
+          type: integer
+          example: 100
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: string
+            detail:
+              type: string
+
+paths:
+  /agm/areas:
+    get:
+      summary: List areas
+      tags:
+        - Areas
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search by area name or ID
+        - name: province_id
+          in: query
+          schema:
+            type: string
+        - name: district_id
+          in: query
+          schema:
+            type: string
+        - name: subdistrict_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [Active, Inactive]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 25
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: "updated_at desc"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Area'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                  error:
+                    type: 'null'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create area
+      tags:
+        - Areas
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - area_name
+                - province_id
+                - district_id
+                - subdistrict_id
+              properties:
+                area_name:
+                  type: string
+                province_id:
+                  type: string
+                district_id:
+                  type: string
+                subdistrict_id:
+                  type: string
+                address_line:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Area'
+                  error:
+                    type: 'null'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (duplicate area_name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/areas/{id}:
+    get:
+      summary: Get area by ID
+      tags:
+        - Areas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Area'
+                  error:
+                    type: 'null'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update area
+      tags:
+        - Areas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: integer
+          description: Version for optimistic locking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                area_name:
+                  type: string
+                province_id:
+                  type: string
+                district_id:
+                  type: string
+                subdistrict_id:
+                  type: string
+                address_line:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Area'
+                  error:
+                    type: 'null'
+        '412':
+          description: Precondition failed (version mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Soft delete area
+      tags:
+        - Areas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+
+  /agm/areas/{id}/status:
+    patch:
+      summary: Toggle area status
+      tags:
+        - Areas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [Active, Inactive]
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Area'
+                  error:
+                    type: 'null'
+        '409':
+          description: Conflict (cannot inactivate area with occupied codes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/areas/{id}/heads:
+    get:
+      summary: List area heads for area
+      tags:
+        - Area Heads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AreaHeadAssignment'
+                  error:
+                    type: 'null'
+
+    post:
+      summary: Add area head
+      tags:
+        - Area Heads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employee_id
+              properties:
+                employee_id:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AreaHeadAssignment'
+                  error:
+                    type: 'null'
+        '400':
+          description: Validation failed (employee inactive)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/areas/{id}/heads/{employee_id}:
+    delete:
+      summary: Remove area head
+      tags:
+        - Area Heads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: employee_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+
+  /agm/extension-codes:
+    get:
+      summary: List extension codes
+      tags:
+        - Extension Codes
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: area_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [EMPTY, OCCUPIED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 25
+        - name: sort
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExtensionCode'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                  error:
+                    type: 'null'
+
+    post:
+      summary: Create extension code
+      tags:
+        - Extension Codes
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - area_id
+                - display_code
+              properties:
+                area_id:
+                  type: integer
+                  format: int64
+                display_code:
+                  type: string
+                  pattern: '^\d{4}$'
+                note:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ExtensionCode'
+                  error:
+                    type: 'null'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/extension-codes/{id}:
+    get:
+      summary: Get extension code by ID
+      tags:
+        - Extension Codes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/ExtensionCode'
+                      - type: object
+                        properties:
+                          assignment:
+                            $ref: '#/components/schemas/ExtensionCodeAssignment'
+                  error:
+                    type: 'null'
+
+  /agm/extension-codes/{id}/rename:
+    patch:
+      summary: Rename extension code
+      tags:
+        - Extension Codes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - new_display_code
+              properties:
+                new_display_code:
+                  type: string
+                  pattern: '^\d{4}$'
+      responses:
+        '200':
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ExtensionCode'
+                  error:
+                    type: 'null'
+        '409':
+          description: Conflict (duplicate display_code)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/extension-codes/{id}/assign:
+    post:
+      summary: Assign extension code to employee
+      tags:
+        - Extension Codes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employee_id
+              properties:
+                employee_id:
+                  type: string
+      responses:
+        '200':
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ExtensionCodeAssignment'
+                  error:
+                    type: 'null'
+        '409':
+          description: Conflict (employee already has active code or code not EMPTY)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/extension-codes/reassign:
+    post:
+      summary: Reassign extension code atomically
+      description: Move employee from one extension code to another in a single atomic transaction
+      tags:
+        - Extension Codes
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - from_id
+                - to_id
+                - employee_id
+              properties:
+                from_id:
+                  type: integer
+                  format: int64
+                  description: Extension code ID to move from (must be OCCUPIED)
+                  example: 2
+                to_id:
+                  type: integer
+                  format: int64
+                  description: Extension code ID to move to (must be EMPTY)
+                  example: 3
+                employee_id:
+                  type: string
+                  description: Employee ID (must match current assignment)
+                  example: "EMP-4001"
+      responses:
+        '200':
+          description: Reassigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      from_id:
+                        type: integer
+                        format: int64
+                      to_id:
+                        type: integer
+                        format: int64
+                      employee_id:
+                        type: string
+                      at:
+                        type: string
+                        format: date-time
+                  error:
+                    type: 'null'
+        '400':
+          description: Bad request (validation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Extension code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (to_id not empty or employee mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Employee validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: Locked (race condition)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/directors:
+    get:
+      summary: List directors
+      tags:
+        - Directors
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Director'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                  error:
+                    type: 'null'
+
+    post:
+      summary: Add director
+      tags:
+        - Directors
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employee_id
+              properties:
+                employee_id:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Director'
+                  error:
+                    type: 'null'
+        '409':
+          description: Conflict (employee already a director)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agm/directors/{employee_id}:
+    delete:
+      summary: Remove director
+      tags:
+        - Directors
+      parameters:
+        - name: employee_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found

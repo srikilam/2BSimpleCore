@@ -72,10 +72,10 @@ paths:
             enum: [Stock, NonStock, Service]
         - name: category_id
           in: query
-          description: Filter by category ID
+          description: Filter by category row_id (UUID)
           schema:
-            type: integer
-            format: int64
+            type: string
+            format: uuid
         - name: tracking
           in: query
           description: Filter by tracking method
@@ -681,32 +681,43 @@ components:
       name: id
       in: path
       required: true
-      description: Product ID
+      description: Product row_id (UUID)
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
 
   schemas:
     Product:
       type: object
-      required: [id, code, name, type, status, base_uom, tracking, version, created_at, updated_at]
+      required: [row_id, id, code, name, type, status, base_uom, tracking, version, created_at, updated_at]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
+          example: "123e4567-e89b-12d3-a456-426614174000"
         id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PRD-\d{10}$'
+          description: Public product ID
+          example: "PRD-0000000001"
         code:
           type: string
           maxLength: 32
+          description: Business code (unique, immutable when Active)
         name:
           type: string
           maxLength: 255
         type:
           type: string
           enum: [Stock, NonStock, Service]
-        category_id:
-          type: integer
-          format: int64
+        category_row_id:
+          type: string
+          format: uuid
           nullable: true
+          description: Category UUID foreign key
         status:
           type: string
           enum: [Draft, In Review, Approved, Active, Inactive, Obsolete]
@@ -759,8 +770,9 @@ components:
           type: number
           format: decimal
           nullable: true
-        is_hazardous:
+        hazardous:
           type: boolean
+          description: Whether the product is hazardous (no 'is_' prefix)
         shelf_life_days:
           type: integer
           nullable: true
@@ -802,11 +814,17 @@ components:
 
     ProductListItem:
       type: object
-      required: [id, code, name, type, status, base_uom, updated_at]
+      required: [row_id, id, code, name, type, status, base_uom, updated_at]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PRD-\d{10}$'
+          description: Public product ID
         code:
           type: string
         name:
@@ -814,9 +832,9 @@ components:
         type:
           type: string
           enum: [Stock, NonStock, Service]
-        category_id:
-          type: integer
-          format: int64
+        category_row_id:
+          type: string
+          format: uuid
           nullable: true
         status:
           type: string
@@ -843,9 +861,10 @@ components:
         type:
           type: string
           enum: [Stock, NonStock, Service]
-        category_id:
-          type: integer
-          format: int64
+        category_row_id:
+          type: string
+          format: uuid
+          nullable: true
         base_uom:
           type: string
         purchase_uom:
@@ -877,7 +896,7 @@ components:
           enum: [Standard, MovingAvg]
         standard_cost:
           type: number
-        is_hazardous:
+        hazardous:
           type: boolean
           default: false
         shelf_life_days:
@@ -905,9 +924,10 @@ components:
         type:
           type: string
           enum: [Stock, NonStock, Service]
-        category_id:
-          type: integer
-          format: int64
+        category_row_id:
+          type: string
+          format: uuid
+          nullable: true
         base_uom:
           type: string
         purchase_uom:
@@ -934,7 +954,7 @@ components:
           enum: [Standard, MovingAvg]
         standard_cost:
           type: number
-        is_hazardous:
+        hazardous:
           type: boolean
         shelf_life_days:
           type: integer
@@ -943,14 +963,21 @@ components:
 
     ProductBarcode:
       type: object
-      required: [id, product_id, symbology, value, is_primary]
+      required: [row_id, id, product_row_id, symbology, value, is_primary]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
-        product_id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PBC-\d{10}$'
+          description: Public barcode ID
+        product_row_id:
+          type: string
+          format: uuid
+          description: Product UUID foreign key
         symbology:
           type: string
           enum: [EAN13, UPC, QR, Code128]
@@ -979,14 +1006,21 @@ components:
 
     ProductUomConversion:
       type: object
-      required: [id, product_id, from_uom, to_uom, factor]
+      required: [row_id, id, product_row_id, from_uom, to_uom, factor]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
-        product_id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PUC-\d{10}$'
+          description: Public UOM conversion ID
+        product_row_id:
+          type: string
+          format: uuid
+          description: Product UUID foreign key
         from_uom:
           type: string
         to_uom:
@@ -1010,20 +1044,28 @@ components:
 
     ProductVendor:
       type: object
-      required: [id, product_id, vendor_id, is_preferred]
+      required: [row_id, id, product_row_id, vendor_id, preferred]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
-        product_id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PVN-\d{10}$'
+          description: Public vendor mapping ID
+        product_row_id:
+          type: string
+          format: uuid
+          description: Product UUID foreign key
         vendor_id:
           type: string
         vendor_sku:
           type: string
-        is_preferred:
+        preferred:
           type: boolean
+          description: Whether this is the preferred vendor (no 'is_' prefix)
         moq:
           type: integer
         lead_time_days:
@@ -1037,13 +1079,13 @@ components:
 
     ProductVendorCreate:
       type: object
-      required: [vendor_id, is_preferred]
+      required: [vendor_id, preferred]
       properties:
         vendor_id:
           type: string
         vendor_sku:
           type: string
-        is_preferred:
+        preferred:
           type: boolean
         moq:
           type: integer
@@ -1056,14 +1098,21 @@ components:
 
     ProductImage:
       type: object
-      required: [id, product_id, url, is_primary]
+      required: [row_id, id, product_row_id, url, is_primary]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
-        product_id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PIM-\d{10}$'
+          description: Public image ID
+        product_row_id:
+          type: string
+          format: uuid
+          description: Product UUID foreign key
         url:
           type: string
           format: uri
@@ -1074,14 +1123,21 @@ components:
 
     ProductDocument:
       type: object
-      required: [id, product_id, file_url, doc_type]
+      required: [row_id, id, product_row_id, file_url, doc_type]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
-        product_id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^PDC-\d{10}$'
+          description: Public document ID
+        product_row_id:
+          type: string
+          format: uuid
+          description: Product UUID foreign key
         file_url:
           type: string
           format: uri
@@ -1091,19 +1147,29 @@ components:
 
     Category:
       type: object
-      required: [id, code, name, created_at, updated_at]
+      required: [row_id, id, code, name, created_at, updated_at]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
+          type: string
+          maxLength: 14
+          pattern: '^CAT-\d{10}$'
+          description: Public category ID
+          example: "CAT-0000000001"
         code:
           type: string
+          maxLength: 32
         name:
           type: string
-        parent_id:
-          type: integer
-          format: int64
+          maxLength: 200
+        parent_row_id:
+          type: string
+          format: uuid
           nullable: true
+          description: Parent category UUID foreign key
         created_at:
           type: string
           format: date-time
@@ -1124,24 +1190,33 @@ components:
           maxLength: 32
         name:
           type: string
-          maxLength: 255
-        parent_id:
-          type: integer
-          format: int64
+          maxLength: 200
+        parent_row_id:
+          type: string
+          format: uuid
+          nullable: true
 
     AuditEntry:
       type: object
-      required: [id, product_id, event_timestamp, actor, role, action]
+      required: [row_id, id, product_row_id, timestamp, actor, role, action]
       properties:
+        row_id:
+          type: string
+          format: uuid
+          description: Internal UUID primary key
         id:
-          type: integer
-          format: int64
-        product_id:
-          type: integer
-          format: int64
-        event_timestamp:
+          type: string
+          maxLength: 14
+          pattern: '^PAD-\d{10}$'
+          description: Public audit entry ID
+        product_row_id:
+          type: string
+          format: uuid
+          description: Product UUID foreign key
+        timestamp:
           type: string
           format: date-time
+          description: Audit event timestamp (no 'event_' prefix)
         actor:
           type: string
         role:

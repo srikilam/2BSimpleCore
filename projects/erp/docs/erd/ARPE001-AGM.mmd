@@ -1,0 +1,75 @@
+%% TARGET: projects/erp/docs/erd/ARPE001-AGM.mmd
+%% Feature: Area Permission (ARPE001)
+%% Module: AGM
+
+erDiagram
+    areas ||--o{ extension_codes : "has"
+    areas ||--o{ area_head_assignments : "has"
+    extension_codes ||--o| extension_code_assignments : "assigned_to"
+    areas ||--o{ extension_code_assignments : "contains"
+
+    areas {
+        bigserial id PK
+        varchar area_name UK "unique area name"
+        varchar province_id "province identifier"
+        varchar district_id "district identifier"
+        varchar subdistrict_id "subdistrict identifier"
+        varchar postal_code "auto-populated from geo API"
+        text address_line "additional address info"
+        text description "area description"
+        varchar status "Active or Inactive"
+        int version "optimistic locking version"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+        varchar created_by "ERP employee_id"
+        varchar updated_by "ERP employee_id"
+    }
+
+    extension_codes {
+        bigserial id PK
+        varchar display_code UK "unique 4-digit code"
+        bigint area_id FK "references areas.id"
+        text note "optional note"
+        varchar status "EMPTY or OCCUPIED"
+        int version "optimistic locking version"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+        varchar created_by "ERP employee_id"
+        varchar updated_by "ERP employee_id"
+    }
+
+    extension_code_assignments {
+        bigserial id PK
+        bigint extension_code_id FK,UK "references extension_codes.id, unique"
+        varchar employee_id UK "ERP employee_id, unique active assignment"
+        bigint area_id FK "denormalized for quick lookup"
+        timestamptz assigned_at
+        varchar assigned_by "ERP employee_id"
+        int version "optimistic locking version"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    area_head_assignments {
+        bigserial id PK
+        bigint area_id FK "references areas.id"
+        varchar employee_id "ERP employee_id"
+        timestamptz assigned_at
+        varchar assigned_by "ERP employee_id"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    directors {
+        bigserial id PK
+        varchar employee_id UK "ERP employee_id, unique"
+        timestamptz assigned_at
+        varchar assigned_by "ERP employee_id"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }

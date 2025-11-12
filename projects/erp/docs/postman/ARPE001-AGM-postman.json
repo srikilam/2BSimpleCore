@@ -1,0 +1,644 @@
+{
+  "info": {
+    "_postman_id": "arpe001-agm-area-permission",
+    "name": "Area Permission API (ARPE001-AGM)",
+    "description": "Postman collection for Area Permission feature - AGM Module\n\n## Quick Start\n1. Set environment variable `base_url` to your API base URL (e.g., `http://localhost:8080/api/v1`)\n2. Set environment variable `auth_token` to your JWT token\n3. All requests include Bearer authentication automatically\n4. Sample request bodies and responses are provided for frontend integration\n\n## Features Covered\n- Areas management (CRUD, status toggle)\n- Extension Codes management (create, rename, assign, reassign)\n- Area Head assignments\n- Director role management\n\n## Authentication\nAll endpoints require Bearer token authentication via `Authorization: Bearer {{auth_token}}` header.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Areas",
+      "item": [
+        {
+          "name": "List Areas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/areas?page=1&page_size=25&sort=updated_at desc",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "25"
+                },
+                {
+                  "key": "sort",
+                  "value": "updated_at desc"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "province_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "Active",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/agm/areas",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "areas"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"area_name\": \"พื้นที่ภาคกลาง\",\n      \"province_id\": \"10\",\n      \"district_id\": \"1001\",\n      \"subdistrict_id\": \"100101\",\n      \"postal_code\": \"10110\",\n      \"address_line\": \"ถนนประชา\",\n      \"description\": \"ศูนย์ทดลอง\",\n      \"status\": \"Active\",\n      \"version\": 3,\n      \"created_at\": \"2025-01-01T08:00:00Z\",\n      \"updated_at\": \"2025-03-01T10:00:00Z\",\n      \"created_by\": \"สมชาย ใจดี\",\n      \"updated_by\": \"สมหญิง รักดี\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"page_size\": 25,\n    \"total\": 100\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Area by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 1,\n    \"area_name\": \"พื้นที่ภาคกลาง\",\n    \"province_id\": \"10\",\n    \"district_id\": \"1001\",\n    \"subdistrict_id\": \"100101\",\n    \"postal_code\": \"10110\",\n    \"address_line\": \"ถนนประชา\",\n    \"description\": \"ศูนย์ทดลอง\",\n    \"status\": \"Active\",\n    \"version\": 3,\n    \"created_at\": \"2025-01-01T08:00:00Z\",\n    \"updated_at\": \"2025-03-01T10:00:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Area",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Auto-generated UUID for idempotency"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_name\": \"พื้นที่ภาคเหนือทดลอง\",\n  \"province_id\": \"57\",\n  \"district_id\": \"5701\",\n  \"subdistrict_id\": \"570101\",\n  \"address_line\": \"หมู่บ้านตัวอย่าง 12\",\n  \"description\": \"พื้นที่ใช้งานทดลอง\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/areas",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"area_name\": \"พื้นที่ภาคเหนือทดลอง\",\n    \"province_id\": \"57\",\n    \"district_id\": \"5701\",\n    \"subdistrict_id\": \"570101\",\n    \"postal_code\": \"57000\",\n    \"address_line\": \"หมู่บ้านตัวอย่าง 12\",\n    \"description\": \"พื้นที่ใช้งานทดลอง\",\n    \"status\": \"Active\",\n    \"version\": 1,\n    \"created_at\": \"2025-11-11T02:00:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Area",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "3",
+                "description": "Version number for optimistic locking"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_name\": \"พื้นที่ภาคกลาง (ปรับปรุง)\",\n  \"province_id\": \"10\",\n  \"district_id\": \"1001\",\n  \"subdistrict_id\": \"100101\",\n  \"address_line\": \"ถนนประชา 2\",\n  \"description\": \"อัพเดตข้อมูล\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 1,\n    \"area_name\": \"พื้นที่ภาคกลาง (ปรับปรุง)\",\n    \"version\": 4,\n    \"updated_at\": \"2025-11-11T05:00:00Z\",\n    \"updated_by\": \"สมหญิง รักดี\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Toggle Area Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "4",
+                "description": "Version number for optimistic locking"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Inactive\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1/status",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1", "status"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 1,\n    \"status\": \"Inactive\",\n    \"version\": 5,\n    \"updated_at\": \"2025-11-11T06:00:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Area (Soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Area Heads",
+      "item": [
+        {
+          "name": "List Area Heads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1/heads",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1", "heads"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"area_id\": 1,\n      \"employee_id\": \"EMP-1002\",\n      \"full_name\": \"สมนึก ตัวอย่าง\",\n      \"assigned_at\": \"2025-02-01T09:00:00Z\",\n      \"assigned_by\": \"ผู้จัดการ ระบบ\"\n    }\n  ],\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Area Head",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"EMP-1010\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1/heads",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1", "heads"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"area_id\": 1,\n    \"employee_id\": \"EMP-1010\",\n    \"assigned_at\": \"2025-11-11T07:00:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Area Head",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/agm/areas/1/heads/EMP-1010",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "areas", "1", "heads", "EMP-1010"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Extension Codes",
+      "item": [
+        {
+          "name": "List Extension Codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/extension-codes?page=1&page_size=25",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "extension-codes"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "25"
+                },
+                {
+                  "key": "area_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "EMPTY",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"display_code\": \"0123\",\n      \"area_id\": 1,\n      \"area_name\": \"พื้นที่ภาคกลาง\",\n      \"status\": \"EMPTY\",\n      \"note\": \"สำรอง\",\n      \"version\": 1,\n      \"created_at\": \"2025-06-01T09:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"page_size\": 25,\n    \"total\": 432\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Extension Code by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/extension-codes/1",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "extension-codes", "1"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 1,\n    \"display_code\": \"0123\",\n    \"area_id\": 1,\n    \"area_name\": \"พื้นที่ภาคกลาง\",\n    \"status\": \"OCCUPIED\",\n    \"note\": \"งานทดลอง\",\n    \"version\": 2,\n    \"assignment\": {\n      \"id\": 1,\n      \"extension_code_id\": 1,\n      \"employee_id\": \"EMP-3001\",\n      \"assigned_at\": \"2025-09-01T08:30:00Z\",\n      \"assigned_by\": \"ผู้จัดการ ระบบ\"\n    },\n    \"created_at\": \"2025-06-01T09:00:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Extension Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_id\": 1,\n  \"display_code\": \"1234\",\n  \"note\": \"สำรองสำหรับแผน 2\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/extension-codes",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "extension-codes"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"display_code\": \"1234\",\n    \"area_id\": 1,\n    \"status\": \"EMPTY\",\n    \"version\": 1,\n    \"created_at\": \"2025-11-11T08:00:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Rename Extension Code",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "1",
+                "description": "Version for optimistic locking"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_display_code\": \"4321\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/extension-codes/2/rename",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "extension-codes", "2", "rename"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"display_code\": \"4321\",\n    \"version\": 2\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Assign Extension Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"EMP-4001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/extension-codes/2/assign",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "extension-codes", "2", "assign"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"extension_code_id\": 2,\n    \"display_code\": \"4321\",\n    \"employee_id\": \"EMP-4001\",\n    \"status\": \"OCCUPIED\",\n    \"assigned_at\": \"2025-11-11T09:00:00Z\",\n    \"assigned_by\": \"ผู้จัดการ ระบบ\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reassign Extension Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from_id\": 2,\n  \"to_id\": 3,\n  \"employee_id\": \"EMP-4001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/extension-codes/reassign",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "extension-codes", "reassign"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"from_id\": 2,\n    \"to_id\": 3,\n    \"employee_id\": \"EMP-4001\",\n    \"at\": \"2025-11-11T09:30:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Directors",
+      "item": [
+        {
+          "name": "List Directors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/directors",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "directors"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"employee_id\": \"EMP-0005\",\n      \"full_name\": \"สมชาย ตัวอย่าง\",\n      \"email\": \"somchai@example.com\",\n      \"dept\": \"Admin\",\n      \"assigned_at\": \"2025-01-10T08:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"page_size\": 25,\n    \"total\": 5\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Director",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"EMP-2001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/directors",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "directors"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"employee_id\": \"EMP-2001\",\n    \"assigned_at\": \"2025-11-11T07:30:00Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Director",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/agm/directors/EMP-2001",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "directors", "EMP-2001"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
