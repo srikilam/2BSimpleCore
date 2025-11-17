@@ -3,9 +3,15 @@ Phase: 01 Define & Analyze
 Agent Role: Claude Architect Agent  
 System: ERP Backend (Golang)  
 
+FEATURE_NAME: Cane Check-In
+FEATURE_CODE: CCIN001
+MODULE: AGM
+FRD_PATH: projects/erp/docs/frd/FRD-Cane-Check-In.md
+
 Feature: {{FEATURE_NAME}}  
 Feature Code: {{FEATURE_CODE}}  
 Module: {{MODULE}}  
+Input: Feature Card → projects/erp/features/FC-{{FEATURE_CODE}}-{{FEATURE_NAME}}.json  
 FRD Path: {{FRD_PATH}}  
 
 ---

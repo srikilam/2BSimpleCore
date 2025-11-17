@@ -7,6 +7,8 @@ System: ERP Backend (Golang + PostgreSQL)
 FEATURE_NAME: Area Permission
 FEATURE_CODE: ARPE001
 MODULE: AGM
+DATE: 2025-11-17
+
 DATE: {{DATE}}            # e.g. 2025-11-11
 SPRINT: {{SPRINT}}        # optional
 
