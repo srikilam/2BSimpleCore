@@ -1,0 +1,984 @@
+# PATH: projects/erp/docs/api/CCIN001-AGM-openapi.yaml
+# OpenAPI 3.0 Specification for Cane Check-In Feature (CCIN001)
+# Module: AGM (Agriculture Management)
+
+openapi: 3.0.3
+info:
+  title: Cane Check-In API (CCIN001)
+  description: |
+    API for managing cane check-in operations at factory gate.
+    Supports three check-in modes: CBM booking, member no-booking, and guest pool.
+  version: 1.0.0
+  contact:
+    name: 2BSimple API Support
+    email: api@2bsimple.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development server
+  - url: https://api.2bsimple.com/api/v1
+    description: Production server
+
+tags:
+  - name: cane-checkins
+    description: Cane check-in management operations
+  - name: cbm-bookings
+    description: CBM booking integration (upstream)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /agm/cane-checkins:
+    get:
+      tags:
+        - cane-checkins
+      summary: List/search/filter check-ins
+      description: Retrieve paginated list of check-ins with search and filter capabilities
+      operationId: listCaneCheckins
+      parameters:
+        - name: q
+          in: query
+          description: Search across cbm_id, quota_id, plate_no, coin_number
+          schema:
+            type: string
+          example: "CHK-2025-000001"
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [checked_in, awaiting_payment, completed, voided]
+        - name: source_type
+          in: query
+          description: Filter by source type
+          schema:
+            type: string
+            enum: [cbm_booking, member_no_booking, guest_pool]
+        - name: guest_only
+          in: query
+          description: Filter guest check-ins only
+          schema:
+            type: boolean
+        - name: cbm_id
+          in: query
+          description: Filter by CBM booking ID
+          schema:
+            type: string
+            pattern: '^CBM-\d{4}-\d{7}$'
+        - name: quota_id
+          in: query
+          description: Filter by quota ID
+          schema:
+            type: string
+        - name: plate_no
+          in: query
+          description: Filter by plate number
+          schema:
+            type: string
+        - name: coin_number
+          in: query
+          description: Filter by coin number
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 25
+            minimum: 1
+            maximum: 100
+        - name: sort
+          in: query
+          description: Sort field (prefix with - for descending)
+          schema:
+            type: string
+            default: "-checkin_time"
+          example: "-checkin_time"
+        - name: export
+          in: query
+          description: Export format (csv for synchronous download)
+          schema:
+            type: string
+            enum: [csv]
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Request limit per minute
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Remaining requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CaneCheckin'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+              example:
+                items:
+                  - id: "CHK-2025-000001"
+                    source_type: "cbm_booking"
+                    cbm_id: "CBM-2025-0000001"
+                    plate_no: "กข-1234"
+                    driver_name: "สมชาย ใจดี"
+                    driver_phone: "0812345678"
+                    coin_number: "A001"
+                    status: "awaiting_payment"
+                    checkin_time: "2025-11-17T09:30:00+07:00"
+                    created_at: "2025-11-17T09:30:00+07:00"
+                meta:
+                  page: 1
+                  page_size: 25
+                  total: 135
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - cane-checkins
+      summary: Create check-in (CBM/member/guest mode)
+      description: |
+        Create new check-in record. Request body varies by source_type:
+        - cbm_booking: requires cbm_id
+        - member_no_booking: requires quota_id, payment_type_1st/2nd, debt_payment_percent
+        - guest_pool: requires payment_type_1st/2nd, guest_flag=true
+      operationId: createCaneCheckin
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: Idempotency key (pattern ui:{user_id}:create_checkin:{hash})
+          schema:
+            type: string
+            pattern: '^ui:[^:]+:create_checkin:.+$'
+          example: "ui:user123:create_checkin:abc123def456"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/CreateCBMCheckin'
+                - $ref: '#/components/schemas/CreateMemberCheckin'
+                - $ref: '#/components/schemas/CreateGuestCheckin'
+            examples:
+              cbm_booking:
+                summary: CBM Booking Mode
+                value:
+                  source_type: "cbm_booking"
+                  cbm_id: "CBM-2025-0000001"
+                  plate_no: "กข-1234"
+                  driver_name: "สมชาย ใจดี"
+                  driver_phone: "0812345678"
+                  coin_number: "A001"
+                  notes: "Scheduled delivery"
+              member_no_booking:
+                summary: Member No-Booking Mode
+                value:
+                  source_type: "member_no_booking"
+                  quota_id: "Q2025-001"
+                  plate_no: "กค-5678"
+                  driver_name: "สมหญิง รักษ์ดี"
+                  driver_phone: "0898765432"
+                  payment_type_1st: "green_bill"
+                  payment_type_2nd: "white_bill"
+                  debt_payment_percent: 50
+                  coin_number: "B002"
+                  notes: "Walk-in delivery"
+              guest_pool:
+                summary: Guest Pool Mode
+                value:
+                  source_type: "guest_pool"
+                  plate_no: "กฆ-9012"
+                  driver_name: "สมปอง เที่ยงธรรม"
+                  driver_phone: "0887654321"
+                  payment_type_1st: "green_bill"
+                  payment_type_2nd: "green_bill"
+                  coin_number: "C003"
+                  guest_flag: true
+                  notes: "Guest delivery"
+      responses:
+        '201':
+          description: Check-in created successfully
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Entity tag for optimistic locking
+              example: 'W/"v1"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCheckinResponse'
+              example:
+                checkin_id: "CHK-2025-000001"
+                status: "awaiting_payment"
+                checkin_time: "2025-11-17T09:30:00+07:00"
+                coin_number: "A001"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Conflict - Duplicate coin_number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "VALIDATION_FAILED"
+                message: "coin_number already in use"
+                details:
+                  - field: "coin_number"
+                    message: "A001 is already assigned to active check-in CHK-2025-000002"
+                trace_id: "abc123def456"
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agm/cane-checkins/{checkin_id}:
+    get:
+      tags:
+        - cane-checkins
+      summary: Get check-in detail
+      description: Retrieve detailed information for a specific check-in
+      operationId: getCaneCheckinById
+      parameters:
+        - name: checkin_id
+          in: path
+          required: true
+          description: Check-in ID (format CHK-YYYY-######)
+          schema:
+            type: string
+            pattern: '^CHK-\d{4}-\d{6}$'
+          example: "CHK-2025-000001"
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Entity tag for optimistic locking
+              example: 'W/"v1"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaneCheckin'
+              example:
+                id: "CHK-2025-000001"
+                source_type: "cbm_booking"
+                cbm_id: "CBM-2025-0000001"
+                quota_id: null
+                plate_no: "กข-1234"
+                driver_name: "สมชาย ใจดี"
+                driver_phone: "0812345678"
+                coin_number: "A001"
+                entry_channel: "web"
+                payment_type_1st: null
+                payment_type_2nd: null
+                debt_payment_percent: null
+                status: "awaiting_payment"
+                guest_flag: false
+                notes: "Scheduled delivery"
+                checkin_time: "2025-11-17T09:30:00+07:00"
+                created_at: "2025-11-17T09:30:00+07:00"
+                updated_at: "2025-11-17T09:30:00+07:00"
+                created_by: "user123"
+                updated_by: null
+                voided_at: null
+                voided_by: null
+                void_reason: null
+                version: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - cane-checkins
+      summary: Update check-in (limited by status)
+      description: |
+        Update check-in fields (plate_no, driver_name, driver_phone, notes).
+        Only editable when status NOT IN (awaiting_payment, completed).
+      operationId: updateCaneCheckin
+      parameters:
+        - name: checkin_id
+          in: path
+          required: true
+          description: Check-in ID
+          schema:
+            type: string
+            pattern: '^CHK-\d{4}-\d{6}$'
+        - name: If-Match
+          in: header
+          required: true
+          description: ETag for optimistic locking
+          schema:
+            type: string
+          example: 'W/"v1"'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCaneCheckin'
+            example:
+              plate_no: "กข-1235"
+              driver_name: "สมชาย ใจดี (แก้ไข)"
+              driver_phone: "0812345679"
+              notes: "Updated note"
+      responses:
+        '200':
+          description: Update successful
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: New ETag version
+              example: 'W/"v2"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaneCheckin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          description: Precondition Failed - ETag mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "CONFLICT_UPDATE_STALE"
+                message: "Resource has been modified"
+                details:
+                  - field: "version"
+                    message: "Current version is 2, provided version is 1"
+                trace_id: "xyz789"
+        '422':
+          description: Unprocessable Entity - Cannot edit in current status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "UNPROCESSABLE_ENTITY"
+                message: "Cannot edit check-in in awaiting_payment status"
+                details: []
+                trace_id: "def456"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agm/cane-checkins/void:
+    post:
+      tags:
+        - cane-checkins
+      summary: Void check-in and release coin_number
+      description: |
+        Void check-in record (status must not be 'completed').
+        Releases coin_number atomically and emits cane.checkin.voided event.
+      operationId: voidCaneCheckin
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: Idempotency key (pattern ui:{user_id}:void:{checkin_id})
+          schema:
+            type: string
+            pattern: '^ui:[^:]+:void:.+$'
+          example: "ui:user123:void:CHK-2025-000001"
+        - name: If-Match
+          in: header
+          description: ETag for optimistic locking (recommended)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidCaneCheckin'
+            example:
+              checkin_id: "CHK-2025-000001"
+              reason: "Duplicate entry detected, need to re-create"
+      responses:
+        '200':
+          description: Void successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidCheckinResponse'
+              example:
+                checkin_id: "CHK-2025-000001"
+                status: "voided"
+                released_coin_number: "A001"
+                voided_at: "2025-11-17T10:00:00+07:00"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict - Cannot void completed check-in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "CONFLICT"
+                message: "Cannot void completed check-in"
+                details:
+                  - field: "status"
+                    message: "Check-in is already completed"
+                trace_id: "ghi789"
+        '412':
+          description: Precondition Failed - ETag mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agm/cane-checkins/validate:
+    get:
+      tags:
+        - cane-checkins
+      summary: Validate coin_number availability
+      description: Preflight validation for coin_number uniqueness (client-side check)
+      operationId: validateCoinNumber
+      parameters:
+        - name: coin_number
+          in: query
+          required: true
+          description: Coin number to validate
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                available: false
+                message: "coin_number A001 is already in use by CHK-2025-000002"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agm/cbm/bookings:
+    get:
+      tags:
+        - cbm-bookings
+      summary: Read CBM bookings (upstream)
+      description: Retrieve pending dispatch bookings from CBM system
+      operationId: listCBMBookings
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status (typically 'dispatch')
+          schema:
+            type: string
+            default: "dispatch"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CBMBooking'
+              example:
+                - cbm_id: "CBM-2025-0000001"
+                  farmer_name: "นายสมชาย ใจดี"
+                  quota_id: "Q2025-001"
+                  plate_no: "กข-1234"
+                  driver_name: "สมชาย ใจดี"
+                  driver_phone: "0812345678"
+                  scheduled_date_time: "2025-11-17T10:00:00+07:00"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agm/cbm/bookings/{cbm_id}/status:
+    patch:
+      tags:
+        - cbm-bookings
+      summary: Update CBM booking status (integration)
+      description: Called during CBM check-in flow to update booking status
+      operationId: updateCBMBookingStatus
+      parameters:
+        - name: cbm_id
+          in: path
+          required: true
+          description: CBM booking ID
+          schema:
+            type: string
+            pattern: '^CBM-\d{4}-\d{7}$'
+        - name: If-Match
+          in: header
+          description: ETag if upstream uses optimistic locking
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phase_cut_transport:
+                  type: string
+                  enum: [awaiting_payment]
+            example:
+              phase_cut_transport: "awaiting_payment"
+      responses:
+        '200':
+          description: Status updated successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          description: Precondition Failed - ETag mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CaneCheckin:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^CHK-\d{4}-\d{6}$'
+          example: "CHK-2025-000001"
+        source_type:
+          type: string
+          enum: [cbm_booking, member_no_booking, guest_pool]
+        cbm_id:
+          type: string
+          nullable: true
+          pattern: '^CBM-\d{4}-\d{7}$'
+        quota_id:
+          type: string
+          nullable: true
+        plate_no:
+          type: string
+          nullable: true
+        driver_name:
+          type: string
+          nullable: true
+        driver_phone:
+          type: string
+          nullable: true
+          pattern: '^0\d{8,9}$'
+        coin_number:
+          type: string
+          minLength: 1
+          maxLength: 12
+        entry_channel:
+          type: string
+          nullable: true
+        payment_type_1st:
+          type: string
+          nullable: true
+          enum: [green_bill, white_bill]
+        payment_type_2nd:
+          type: string
+          nullable: true
+          enum: [green_bill, white_bill]
+        debt_payment_percent:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+        status:
+          type: string
+          enum: [checked_in, awaiting_payment, completed, voided]
+        guest_flag:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        checkin_time:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_by:
+          type: string
+          nullable: true
+        voided_at:
+          type: string
+          format: date-time
+          nullable: true
+        voided_by:
+          type: string
+          nullable: true
+        void_reason:
+          type: string
+          nullable: true
+        version:
+          type: integer
+
+    CreateCBMCheckin:
+      type: object
+      required:
+        - source_type
+        - cbm_id
+        - plate_no
+        - driver_name
+        - driver_phone
+        - coin_number
+      properties:
+        source_type:
+          type: string
+          enum: [cbm_booking]
+        cbm_id:
+          type: string
+          pattern: '^CBM-\d{4}-\d{7}$'
+        plate_no:
+          type: string
+        driver_name:
+          type: string
+        driver_phone:
+          type: string
+          pattern: '^0\d{8,9}$'
+        coin_number:
+          type: string
+          minLength: 1
+          maxLength: 12
+        notes:
+          type: string
+
+    CreateMemberCheckin:
+      type: object
+      required:
+        - source_type
+        - quota_id
+        - plate_no
+        - driver_name
+        - driver_phone
+        - payment_type_1st
+        - payment_type_2nd
+        - debt_payment_percent
+        - coin_number
+      properties:
+        source_type:
+          type: string
+          enum: [member_no_booking]
+        quota_id:
+          type: string
+        plate_no:
+          type: string
+        driver_name:
+          type: string
+        driver_phone:
+          type: string
+          pattern: '^0\d{8,9}$'
+        payment_type_1st:
+          type: string
+          enum: [green_bill, white_bill]
+        payment_type_2nd:
+          type: string
+          enum: [green_bill, white_bill]
+        debt_payment_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        coin_number:
+          type: string
+          minLength: 1
+          maxLength: 12
+        notes:
+          type: string
+
+    CreateGuestCheckin:
+      type: object
+      required:
+        - source_type
+        - plate_no
+        - driver_name
+        - driver_phone
+        - payment_type_1st
+        - payment_type_2nd
+        - coin_number
+        - guest_flag
+      properties:
+        source_type:
+          type: string
+          enum: [guest_pool]
+        plate_no:
+          type: string
+        driver_name:
+          type: string
+        driver_phone:
+          type: string
+          pattern: '^0\d{8,9}$'
+        payment_type_1st:
+          type: string
+          enum: [green_bill, white_bill]
+        payment_type_2nd:
+          type: string
+          enum: [green_bill, white_bill]
+        coin_number:
+          type: string
+          minLength: 1
+          maxLength: 12
+        guest_flag:
+          type: boolean
+          default: true
+        notes:
+          type: string
+
+    UpdateCaneCheckin:
+      type: object
+      properties:
+        plate_no:
+          type: string
+        driver_name:
+          type: string
+        driver_phone:
+          type: string
+          pattern: '^0\d{8,9}$'
+        notes:
+          type: string
+
+    VoidCaneCheckin:
+      type: object
+      required:
+        - checkin_id
+        - reason
+      properties:
+        checkin_id:
+          type: string
+          pattern: '^CHK-\d{4}-\d{6}$'
+        reason:
+          type: string
+          minLength: 5
+
+    CreateCheckinResponse:
+      type: object
+      properties:
+        checkin_id:
+          type: string
+          pattern: '^CHK-\d{4}-\d{6}$'
+        status:
+          type: string
+          enum: [checked_in, awaiting_payment]
+        checkin_time:
+          type: string
+          format: date-time
+        coin_number:
+          type: string
+
+    VoidCheckinResponse:
+      type: object
+      properties:
+        checkin_id:
+          type: string
+        status:
+          type: string
+          enum: [voided]
+        released_coin_number:
+          type: string
+        voided_at:
+          type: string
+          format: date-time
+
+    CBMBooking:
+      type: object
+      properties:
+        cbm_id:
+          type: string
+          pattern: '^CBM-\d{4}-\d{7}$'
+        farmer_name:
+          type: string
+        quota_id:
+          type: string
+        plate_no:
+          type: string
+        driver_name:
+          type: string
+        driver_phone:
+          type: string
+        scheduled_date_time:
+          type: string
+          format: date-time
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+        trace_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "VALIDATION_FAILED"
+            message: "Invalid request data"
+            details:
+              - field: "coin_number"
+                message: "coin_number is required"
+            trace_id: "abc123"
+
+    Unauthorized:
+      description: Unauthorized - Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "UNAUTHORIZED"
+            message: "Authentication required"
+            details: []
+            trace_id: "def456"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "FORBIDDEN"
+            message: "Insufficient permissions"
+            details: []
+            trace_id: "ghi789"
+
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "NOT_FOUND"
+            message: "Check-in not found"
+            details: []
+            trace_id: "jkl012"
+
+    RateLimitExceeded:
+      description: Too Many Requests - Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retry
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "RATE_LIMIT_EXCEEDED"
+            message: "Rate limit exceeded"
+            details: []
+            trace_id: "mno345"
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "INTERNAL_ERROR"
+            message: "Internal server error"
+            details: []
+            trace_id: "pqr678"

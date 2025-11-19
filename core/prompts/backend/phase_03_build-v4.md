@@ -372,6 +372,7 @@
     - ✅ ตรวจสอบ primary key type จาก SQL schema
   7. ❌ ห้ามลืมเพิ่ม dependency injection ใน main.go
     - ✅ Wire ทุก repository → service → handler → routes
+  8. ❌ ห้ามใช้ sqlx ใน main.go
 
   ---
   ✅ Definition of Done

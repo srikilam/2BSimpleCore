@@ -1,0 +1,53 @@
+%% PATH: projects/erp/docs/erd/CCIN001-AGM.mmd
+%% ERD Diagram for Cane Check-In Feature (CCIN001)
+%% Module: AGM (Agriculture Management)
+
+erDiagram
+    cane_checkins ||--o| cbm_bookings : "references (cbm_id)"
+    cane_checkins ||--o| quotas : "references (quota_id)"
+
+    cane_checkins {
+        uuid row_id PK "Internal PK"
+        varchar_15 id UK "Public ID: CHK-YYYY-######"
+        timestamptz created_at "NOT NULL DEFAULT now()"
+        timestamptz updated_at "NOT NULL DEFAULT now()"
+        integer version "NOT NULL DEFAULT 1, optimistic lock"
+        timestamptz checkin_time "NOT NULL DEFAULT now()"
+        text source_type "NOT NULL DEFAULT cbm_booking, CHECK IN (cbm_booking, member_no_booking, guest_pool)"
+        varchar_15 cbm_id "NULL, FK to cbm_bookings"
+        varchar_64 quota_id "NULL, reference to quotas"
+        varchar_32 plate_no "NULL"
+        varchar_200 driver_name "NULL, PII"
+        varchar_16 driver_phone "NULL, pattern ^0\\d{8,9}$, PII"
+        varchar_12 coin_number "NOT NULL, partial unique WHERE status IN (checked_in, awaiting_payment)"
+        varchar_64 entry_channel "NULL"
+        text payment_type_1st "NULL, CHECK IN (green_bill, white_bill)"
+        text payment_type_2nd "NULL, CHECK IN (green_bill, white_bill)"
+        integer debt_payment_percent "NULL, CHECK BETWEEN 0 AND 100"
+        text status "NOT NULL DEFAULT checked_in, CHECK IN (checked_in, awaiting_payment, completed, voided)"
+        boolean guest_flag "NOT NULL DEFAULT false"
+        text notes "NULL"
+        varchar_64 created_by "NOT NULL DEFAULT system"
+        varchar_64 updated_by "NULL"
+        timestamptz voided_at "NULL"
+        varchar_64 voided_by "NULL"
+        text void_reason "NULL"
+        timestamptz deleted_at "NULL, soft delete"
+    }
+
+    cbm_bookings {
+        varchar_15 cbm_id PK "Upstream system"
+        varchar_200 farmer_name
+        varchar_64 quota_id
+        varchar_32 plate_no
+        varchar_200 driver_name
+        varchar_16 driver_phone
+        timestamptz scheduled_date_time
+        text phase_cut_transport "Status field"
+        text status
+    }
+
+    quotas {
+        varchar_64 quota_id PK "Upstream reference"
+        text quota_details "Quota information"
+    }

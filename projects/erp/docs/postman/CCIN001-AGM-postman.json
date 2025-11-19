@@ -1,0 +1,671 @@
+{
+  "info": {
+    "_postman_id": "ccin001-agm-cane-checkin",
+    "name": "CCIN001 - Cane Check-In API (AGM)",
+    "description": "# Cane Check-In API - Postman Collection\n\n**Feature Code:** CCIN001  \n**Module:** AGM (Agriculture Management)  \n**Version:** 1.0.0\n\n## Quick Start\n\n1. **Set environment variables:**\n   - `base_url`: Your API base URL (e.g., `http://localhost:8080/api/v1` for dev)\n   - `auth_token`: Your JWT bearer token\n\n2. **Authentication:**\n   - All endpoints require Bearer token authentication\n   - Token is automatically included via `{{auth_token}}` variable\n\n3. **Idempotency:**\n   - Create and Void operations require `X-Idempotency-Key` header\n   - Examples provided in each request\n\n4. **Optimistic Locking:**\n   - Update and Void operations support `If-Match` header with ETag\n   - Get detail endpoint returns ETag in response headers\n\n## Feature Overview\n\nThis collection supports three check-in modes:\n- **CBM Booking:** Pre-scheduled trucks from CBM system\n- **Member No-Booking:** Walk-in trucks with member quota\n- **Guest Pool:** Non-member trucks\n\n## Rate Limiting\n\n- 120 requests/minute per consumer\n- 429 response includes `Retry-After` header\n\n## Support\n\nFor API issues, contact: api@2bsimple.com",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Cane Check-Ins",
+      "item": [
+        {
+          "name": "List Check-Ins",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins?page=1&page_size=25&sort=-checkin_time",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search across cbm_id, quota_id, plate_no, coin_number",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "awaiting_payment",
+                  "description": "Filter by status: checked_in|awaiting_payment|completed|voided",
+                  "disabled": true
+                },
+                {
+                  "key": "source_type",
+                  "value": "cbm_booking",
+                  "description": "Filter by source: cbm_booking|member_no_booking|guest_pool",
+                  "disabled": true
+                },
+                {
+                  "key": "guest_only",
+                  "value": "true",
+                  "description": "Filter guest check-ins only",
+                  "disabled": true
+                },
+                {
+                  "key": "cbm_id",
+                  "value": "",
+                  "description": "Filter by CBM booking ID",
+                  "disabled": true
+                },
+                {
+                  "key": "quota_id",
+                  "value": "",
+                  "description": "Filter by quota ID",
+                  "disabled": true
+                },
+                {
+                  "key": "plate_no",
+                  "value": "",
+                  "description": "Filter by plate number",
+                  "disabled": true
+                },
+                {
+                  "key": "coin_number",
+                  "value": "",
+                  "description": "Filter by coin number",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "page_size",
+                  "value": "25",
+                  "description": "Items per page (default: 25, max: 100)"
+                },
+                {
+                  "key": "sort",
+                  "value": "-checkin_time",
+                  "description": "Sort field (prefix - for desc)"
+                },
+                {
+                  "key": "export",
+                  "value": "csv",
+                  "description": "Export format (csv for download)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Retrieve paginated list of check-ins with optional search and filters.\n\n**Role Access:** Gate Staff, Dispatcher, Logistics Supervisor, Admin\n\n**Response Example:**\n```json\n{\n  \"items\": [\n    {\n      \"id\": \"CHK-2025-000001\",\n      \"source_type\": \"cbm_booking\",\n      \"cbm_id\": \"CBM-2025-0000001\",\n      \"plate_no\": \"กข-1234\",\n      \"driver_name\": \"สมชาย ใจดี\",\n      \"driver_phone\": \"0812345678\",\n      \"coin_number\": \"A001\",\n      \"status\": \"awaiting_payment\",\n      \"checkin_time\": \"2025-11-17T09:30:00+07:00\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"page_size\": 25,\n    \"total\": 135\n  }\n}\n```"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins?page=1&page_size=25",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins"],
+                  "query": [
+                    {"key": "page", "value": "1"},
+                    {"key": "page_size", "value": "25"}
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"CHK-2025-000001\",\n      \"source_type\": \"cbm_booking\",\n      \"cbm_id\": \"CBM-2025-0000001\",\n      \"plate_no\": \"กข-1234\",\n      \"driver_name\": \"สมชาย ใจดี\",\n      \"driver_phone\": \"0812345678\",\n      \"coin_number\": \"A001\",\n      \"status\": \"awaiting_payment\",\n      \"checkin_time\": \"2025-11-17T09:30:00+07:00\",\n      \"created_at\": \"2025-11-17T09:30:00+07:00\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"page_size\": 25,\n    \"total\": 135\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Check-In by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins/CHK-2025-000001",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins", "CHK-2025-000001"]
+            },
+            "description": "Retrieve detailed information for a specific check-in.\n\n**Path Parameter:**\n- `checkin_id`: Check-in ID (format: CHK-YYYY-######)\n\n**Response Headers:**\n- `ETag`: Entity tag for optimistic locking (e.g., W/\"v1\")\n\n**Role Access:** Gate Staff, Dispatcher, Logistics Supervisor, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins/CHK-2025-000001",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins", "CHK-2025-000001"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"},
+                {"key": "ETag", "value": "W/\"v1\""}
+              ],
+              "body": "{\n  \"id\": \"CHK-2025-000001\",\n  \"source_type\": \"cbm_booking\",\n  \"cbm_id\": \"CBM-2025-0000001\",\n  \"quota_id\": null,\n  \"plate_no\": \"กข-1234\",\n  \"driver_name\": \"สมชาย ใจดี\",\n  \"driver_phone\": \"0812345678\",\n  \"coin_number\": \"A001\",\n  \"entry_channel\": \"web\",\n  \"payment_type_1st\": null,\n  \"payment_type_2nd\": null,\n  \"debt_payment_percent\": null,\n  \"status\": \"awaiting_payment\",\n  \"guest_flag\": false,\n  \"notes\": \"Scheduled delivery\",\n  \"checkin_time\": \"2025-11-17T09:30:00+07:00\",\n  \"created_at\": \"2025-11-17T09:30:00+07:00\",\n  \"updated_at\": \"2025-11-17T09:30:00+07:00\",\n  \"created_by\": \"user123\",\n  \"updated_by\": null,\n  \"voided_at\": null,\n  \"voided_by\": null,\n  \"void_reason\": null,\n  \"version\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Check-In (CBM Mode)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "ui:{{$randomUUID}}:create_checkin:cbm001",
+                "type": "text",
+                "description": "Pattern: ui:{user_id}:create_checkin:{hash}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source_type\": \"cbm_booking\",\n  \"cbm_id\": \"CBM-2025-0000001\",\n  \"plate_no\": \"กข-1234\",\n  \"driver_name\": \"สมชาย ใจดี\",\n  \"driver_phone\": \"0812345678\",\n  \"coin_number\": \"A001\",\n  \"notes\": \"Scheduled delivery from CBM system\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins"]
+            },
+            "description": "Create check-in for CBM-scheduled truck.\n\n**Required Headers:**\n- `X-Idempotency-Key`: Unique key for idempotent operation\n\n**Required Fields:**\n- `source_type`: \"cbm_booking\"\n- `cbm_id`: CBM booking ID (pattern: CBM-YYYY-#######)\n- `plate_no`, `driver_name`, `driver_phone`, `coin_number`\n\n**Side Effects:**\n- Updates CBM booking status to \"awaiting_payment\"\n- Emits EventBus event: cane.checkin.created\n\n**Role Access:** Gate Staff, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {"key": "X-Idempotency-Key", "value": "ui:user123:create_checkin:abc123"}
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"source_type\": \"cbm_booking\",\n  \"cbm_id\": \"CBM-2025-0000001\",\n  \"plate_no\": \"กข-1234\",\n  \"driver_name\": \"สมชาย ใจดี\",\n  \"driver_phone\": \"0812345678\",\n  \"coin_number\": \"A001\",\n  \"notes\": \"Scheduled delivery\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"},
+                {"key": "ETag", "value": "W/\"v1\""}
+              ],
+              "body": "{\n  \"checkin_id\": \"CHK-2025-000001\",\n  \"status\": \"awaiting_payment\",\n  \"checkin_time\": \"2025-11-17T09:30:00+07:00\",\n  \"coin_number\": \"A001\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Check-In (Member No-Booking)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "ui:{{$randomUUID}}:create_checkin:member001",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source_type\": \"member_no_booking\",\n  \"quota_id\": \"Q2025-001\",\n  \"plate_no\": \"กค-5678\",\n  \"driver_name\": \"สมหญิง รักษ์ดี\",\n  \"driver_phone\": \"0898765432\",\n  \"payment_type_1st\": \"green_bill\",\n  \"payment_type_2nd\": \"white_bill\",\n  \"debt_payment_percent\": 50,\n  \"coin_number\": \"B002\",\n  \"notes\": \"Walk-in member delivery\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins"]
+            },
+            "description": "Create check-in for member truck without CBM booking.\n\n**Required Fields:**\n- `source_type`: \"member_no_booking\"\n- `quota_id`: Member quota ID\n- `plate_no`, `driver_name`, `driver_phone`, `coin_number`\n- `payment_type_1st`, `payment_type_2nd`: \"green_bill\" | \"white_bill\"\n- `debt_payment_percent`: Integer 0-100 (REQUIRED)\n\n**Role Access:** Gate Staff, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"source_type\": \"member_no_booking\",\n  \"quota_id\": \"Q2025-001\",\n  \"plate_no\": \"กค-5678\",\n  \"driver_name\": \"สมหญิง รักษ์ดี\",\n  \"driver_phone\": \"0898765432\",\n  \"payment_type_1st\": \"green_bill\",\n  \"payment_type_2nd\": \"white_bill\",\n  \"debt_payment_percent\": 50,\n  \"coin_number\": \"B002\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"},
+                {"key": "ETag", "value": "W/\"v1\""}
+              ],
+              "body": "{\n  \"checkin_id\": \"CHK-2025-000002\",\n  \"status\": \"awaiting_payment\",\n  \"checkin_time\": \"2025-11-17T10:00:00+07:00\",\n  \"coin_number\": \"B002\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Check-In (Guest Pool)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "ui:{{$randomUUID}}:create_checkin:guest001",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source_type\": \"guest_pool\",\n  \"plate_no\": \"กฆ-9012\",\n  \"driver_name\": \"สมปอง เที่ยงธรรม\",\n  \"driver_phone\": \"0887654321\",\n  \"payment_type_1st\": \"green_bill\",\n  \"payment_type_2nd\": \"green_bill\",\n  \"coin_number\": \"C003\",\n  \"guest_flag\": true,\n  \"notes\": \"Guest truck delivery\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins"]
+            },
+            "description": "Create check-in for guest truck (non-member).\n\n**Required Fields:**\n- `source_type`: \"guest_pool\"\n- `plate_no`, `driver_name`, `driver_phone`, `coin_number`\n- `payment_type_1st`, `payment_type_2nd`: \"green_bill\" | \"white_bill\"\n- `guest_flag`: true\n\n**Note:** debt_payment_percent should be NULL for guest pool\n\n**Role Access:** Gate Staff, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"source_type\": \"guest_pool\",\n  \"plate_no\": \"กฆ-9012\",\n  \"driver_name\": \"สมปอง เที่ยงธรรม\",\n  \"driver_phone\": \"0887654321\",\n  \"payment_type_1st\": \"green_bill\",\n  \"payment_type_2nd\": \"green_bill\",\n  \"coin_number\": \"C003\",\n  \"guest_flag\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"},
+                {"key": "ETag", "value": "W/\"v1\""}
+              ],
+              "body": "{\n  \"checkin_id\": \"CHK-2025-000003\",\n  \"status\": \"awaiting_payment\",\n  \"checkin_time\": \"2025-11-17T10:30:00+07:00\",\n  \"coin_number\": \"C003\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Check-In",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "W/\"v1\"",
+                "type": "text",
+                "description": "ETag from GET detail response"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plate_no\": \"กข-1235\",\n  \"driver_name\": \"สมชาย ใจดี (แก้ไข)\",\n  \"driver_phone\": \"0812345679\",\n  \"notes\": \"Updated information\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins/CHK-2025-000001",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins", "CHK-2025-000001"]
+            },
+            "description": "Update check-in fields (limited by status).\n\n**Editable Fields:**\n- `plate_no`, `driver_name`, `driver_phone`, `notes`\n\n**Preconditions:**\n- Status must NOT be in (awaiting_payment, completed)\n- Requires `If-Match` header with ETag\n\n**Response Headers:**\n- `ETag`: New version tag\n\n**Role Access:** Gate Staff, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {"key": "If-Match", "value": "W/\"v1\""}
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"plate_no\": \"กข-1235\",\n  \"notes\": \"Updated\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins/CHK-2025-000001",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins", "CHK-2025-000001"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"},
+                {"key": "ETag", "value": "W/\"v2\""}
+              ],
+              "body": "{\n  \"id\": \"CHK-2025-000001\",\n  \"plate_no\": \"กข-1235\",\n  \"updated_at\": \"2025-11-17T11:00:00+07:00\",\n  \"version\": 2\n}"
+            }
+          ]
+        },
+        {
+          "name": "Void Check-In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "ui:{{$randomUUID}}:void:CHK-2025-000001",
+                "type": "text",
+                "description": "Pattern: ui:{user_id}:void:{checkin_id}"
+              },
+              {
+                "key": "If-Match",
+                "value": "W/\"v1\"",
+                "type": "text",
+                "description": "Optional: ETag for optimistic locking"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checkin_id\": \"CHK-2025-000001\",\n  \"reason\": \"Duplicate entry detected, need to re-create with correct information\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins/void",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins", "void"]
+            },
+            "description": "Void check-in and release coin_number.\n\n**Required Fields:**\n- `checkin_id`: Check-in ID to void\n- `reason`: Void reason (minimum 5 characters)\n\n**Preconditions:**\n- Status must NOT be 'completed'\n\n**Side Effects:**\n- Releases coin_number atomically\n- Emits EventBus event: cane.checkin.voided\n\n**Role Access:** Gate Staff, Logistics Supervisor, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"checkin_id\": \"CHK-2025-000001\",\n  \"reason\": \"Duplicate entry, need to recreate\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins/void",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins", "void"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"checkin_id\": \"CHK-2025-000001\",\n  \"status\": \"voided\",\n  \"released_coin_number\": \"A001\",\n  \"voided_at\": \"2025-11-17T11:30:00+07:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Validate Coin Number",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/cane-checkins/validate?coin_number=A001",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cane-checkins", "validate"],
+              "query": [
+                {
+                  "key": "coin_number",
+                  "value": "A001",
+                  "description": "Coin number to validate"
+                }
+              ]
+            },
+            "description": "Preflight validation for coin_number uniqueness.\n\n**Query Parameters:**\n- `coin_number`: Coin number to check\n\n**Use Case:**\n- Client-side validation before form submission\n\n**Role Access:** Gate Staff, Admin"
+          },
+          "response": [
+            {
+              "name": "Available Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins/validate?coin_number=D999",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins", "validate"],
+                  "query": [{"key": "coin_number", "value": "D999"}]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"available\": true,\n  \"message\": \"coin_number D999 is available\"\n}"
+            },
+            {
+              "name": "Unavailable Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/agm/cane-checkins/validate?coin_number=A001",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cane-checkins", "validate"],
+                  "query": [{"key": "coin_number", "value": "A001"}]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"available\": false,\n  \"message\": \"coin_number A001 is already in use by CHK-2025-000002\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CBM Bookings (Upstream)",
+      "item": [
+        {
+          "name": "List CBM Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/agm/cbm/bookings?status=dispatch",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cbm", "bookings"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "dispatch",
+                  "description": "Filter by booking status"
+                }
+              ]
+            },
+            "description": "Retrieve pending CBM bookings for dispatch queue.\n\n**Query Parameters:**\n- `status`: Typically 'dispatch' for pending bookings\n\n**Use Case:**\n- Populate 'ต้องส่ง' (To Send) tab in UI\n- Select booking for CBM check-in mode\n\n**Role Access:** Gate Staff, Dispatcher, Logistics Supervisor, Admin"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/agm/cbm/bookings?status=dispatch",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cbm", "bookings"],
+                  "query": [{"key": "status", "value": "dispatch"}]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "[\n  {\n    \"cbm_id\": \"CBM-2025-0000001\",\n    \"farmer_name\": \"นายสมชาย ใจดี\",\n    \"quota_id\": \"Q2025-001\",\n    \"plate_no\": \"กข-1234\",\n    \"driver_name\": \"สมชาย ใจดี\",\n    \"driver_phone\": \"0812345678\",\n    \"scheduled_date_time\": \"2025-11-17T10:00:00+07:00\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Update CBM Booking Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "",
+                "type": "text",
+                "description": "Optional: ETag if upstream uses optimistic locking",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phase_cut_transport\": \"awaiting_payment\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/agm/cbm/bookings/CBM-2025-0000001/status",
+              "host": ["{{base_url}}"],
+              "path": ["agm", "cbm", "bookings", "CBM-2025-0000001", "status"]
+            },
+            "description": "Update CBM booking status (integration endpoint).\n\n**Use Case:**\n- Automatically called when creating CBM check-in\n- Updates booking phase to 'awaiting_payment'\n\n**Note:** This is an internal integration call, not typically used directly by frontend.\n\n**Role Access:** System (internal)"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phase_cut_transport\": \"awaiting_payment\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/agm/cbm/bookings/CBM-2025-0000001/status",
+                  "host": ["{{base_url}}"],
+                  "path": ["agm", "cbm", "bookings", "CBM-2025-0000001", "status"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}

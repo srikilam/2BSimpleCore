@@ -1,0 +1,145 @@
+{
+  "feature": "CCIN001",
+  "feature_name": "Cane Check-In",
+  "module": "AGM",
+  "phase": "log_completed",
+  "checked_at": "2025-11-17T14:30:00+07:00",
+  "qa_status": "passed_with_recommendations",
+  "log_completed_at": "2025-11-17T15:00:00+07:00",
+  "qa_report": "projects/erp/logbook/sprint-01/feature-CCIN001-qa.md",
+  "outputs": {
+    "database": {
+      "schema_up": "projects/erp/backend/go_api/migrations/20251117_create_CCIN001_schema.up.sql",
+      "schema_down": "projects/erp/backend/go_api/migrations/20251117_create_CCIN001_schema.down.sql",
+      "tables": ["cane_checkins"],
+      "indexes": [
+        "pk on row_id",
+        "unique on id",
+        "uq_cane_checkins_coin_number_active (partial)",
+        "idx_cane_checkins_created_at",
+        "idx_cane_checkins_updated_at",
+        "idx_cane_checkins_checkin_time",
+        "idx_cane_checkins_status",
+        "idx_cane_checkins_source_type",
+        "idx_cane_checkins_status_updated_at",
+        "idx_cane_checkins_cbm_id",
+        "idx_cane_checkins_quota_id",
+        "idx_cane_checkins_plate_no",
+        "idx_cane_checkins_driver_phone",
+        "idx_cane_checkins_guest_flag",
+        "idx_cane_checkins_created_by",
+        "idx_cane_checkins_updated_by",
+        "idx_cane_checkins_deleted_at"
+      ],
+      "triggers": [
+        "trg_cane_checkins_updated_at (auto-update timestamp)",
+        "trg_cane_checkins_generate_id (public ID generation)",
+        "trg_cane_checkins_increment_version (optimistic locking)"
+      ]
+    },
+    "backend": {
+      "models": "projects/erp/backend/go_api/internal/models/cane_checkin.go",
+      "services": "projects/erp/backend/go_api/internal/services/cane_checkin_service.go",
+      "handlers": "projects/erp/backend/go_api/internal/handlers/cane_checkin_handler.go",
+      "repositories": {
+        "interface": "projects/erp/backend/go_api/internal/repositories/cane_checkin_repository.go",
+        "implementation": "projects/erp/backend/go_api/internal/repositories/sql/cane_checkin_repository.go"
+      },
+      "routes": "projects/erp/backend/go_api/internal/routes/cane_checkin_routes.go",
+      "cbm_repository": {
+        "interface": "projects/erp/backend/go_api/internal/repositories/cbm_booking_repository.go",
+        "implementation": "projects/erp/backend/go_api/internal/repositories/sql/cbm_booking_repository.go"
+      },
+      "events": "projects/erp/backend/go_api/internal/events/cane_checkin_events.go"
+    },
+    "api": {
+      "openapi": "projects/erp/docs/api/CCIN001-AGM-openapi.yaml",
+      "endpoints": [
+        "GET /agm/cane-checkins",
+        "POST /agm/cane-checkins",
+        "GET /agm/cane-checkins/:id",
+        "PATCH /agm/cane-checkins/:id",
+        "POST /agm/cane-checkins/void",
+        "GET /agm/cane-checkins/validate",
+        "GET /agm/cbm/bookings"
+      ]
+    },
+    "documentation": {
+      "feature_card": "projects/erp/features/FC-CCIN001-Cane-Check-In.json",
+      "erd": "projects/erp/docs/erd/CCIN001-AGM.mmd",
+      "frd": "projects/erp/docs/frd/FRD-Cane-Check-In.md",
+      "api_db_mapping": "projects/erp/docs/frd/API-DB-Cane-Check-In.md",
+      "postman": "projects/erp/docs/postman/CCIN001-AGM-postman.json",
+      "logbook": "projects/erp/logbook/sprint-01/feature-CCIN001.md"
+    },
+    "tests": {
+      "unit": "Not implemented (recommended for production)",
+      "integration": "Not implemented (recommended for production)",
+      "coverage": "0% (non-blocking)"
+    }
+  },
+  "fixed_issues": [
+    {
+      "severity": "HIGH",
+      "category": "Integration",
+      "description": "EventBus integration implemented",
+      "location": "internal/events/cane_checkin_events.go, internal/services/cane_checkin_service.go:153-160,243-256",
+      "status": "FIXED"
+    },
+    {
+      "severity": "HIGH",
+      "category": "Implementation",
+      "description": "Idempotency support added to service constructor",
+      "location": "internal/services/cane_checkin_service.go:56-57",
+      "status": "FIXED"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Integration",
+      "description": "CBMBookingRepository interface and implementation created",
+      "location": "internal/repositories/cbm_booking_repository.go, internal/repositories/sql/cbm_booking_repository.go",
+      "status": "FIXED"
+    },
+    {
+      "severity": "LOW",
+      "category": "Code Quality",
+      "description": "Removed duplicate contains() function",
+      "location": "internal/handlers/cane_checkin_handler.go:361",
+      "status": "FIXED"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "MEDIUM",
+      "category": "Testing",
+      "description": "Add unit tests for full coverage (target ≥80%)",
+      "blocking": false,
+      "estimated_effort": "6-8 hours"
+    },
+    {
+      "priority": "LOW",
+      "category": "Production Enhancement",
+      "description": "Enable full idempotency checking when needed",
+      "blocking": false,
+      "estimated_effort": "1-2 hours"
+    },
+    {
+      "priority": "LOW",
+      "category": "Production Enhancement",
+      "description": "Add compensation logic for CBM updates",
+      "blocking": false,
+      "estimated_effort": "2-3 hours"
+    }
+  ],
+  "next_steps": [
+    "✅ Phase 05 Complete - Log & Learn documented",
+    "📋 Architect: Final review and approval",
+    "Optional: Add unit tests before production deployment (6-8 hours)",
+    "Optional: Add integration tests (4-6 hours)",
+    "Required: Define Payment webhook contract",
+    "Required: Implement PII masking for production"
+  ],
+  "ready_for_production": "with_tests_recommended",
+  "ready_for_architect_review": true,
+  "phase_05_completed": true
+}

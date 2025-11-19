@@ -1,0 +1,72 @@
+-- PATH: projects/erp/docs/erd/CNRC001-AGM.mmd
+erDiagram
+    receiving_notes {
+        UUID row_id PK
+        VARCHAR(14) id UK "CRN-YYYY-NNNNN"
+        TIMESTAMPTZ created_at "DEFAULT now()"
+        TIMESTAMPTZ updated_at "DEFAULT now()"
+        INTEGER version "DEFAULT 1, CHECK > 0"
+        TEXT status "DEFAULT Draft, CHECK IN (Draft, Issued, Void)"
+        TEXT source_type "DEFAULT CBM, CHECK IN (CBM, NBM, CENTRAL)"
+        VARCHAR(255) source_ref "external booking ID"
+        VARCHAR(64) checkin_id "NOT NULL"
+        TIMESTAMPTZ checkin_time
+        JSONB checkin_snapshot "check-in data snapshot"
+        INTEGER weigh_coin "CHECK >= 0"
+        TEXT dump_fetch_mode "DEFAULT auto, CHECK IN (auto, manual)"
+        NUMERIC(5,2) ccs "CHECK >= 0 AND round(ccs,2)"
+        NUMERIC(10,2) net_weight_kg "CHECK >= 0 AND round(net_weight_kg,2)"
+        TIMESTAMPTZ issued_at
+        VARCHAR(64) issued_by
+        TIMESTAMPTZ voided_at
+        VARCHAR(64) voided_by
+        TEXT void_reason
+        TEXT pdf_url "object storage reference"
+        VARCHAR(255) booking_id
+        JSONB payment_prefs "NBM payment preferences"
+        TIMESTAMPTZ deleted_at "soft delete"
+    }
+
+    factory_dump_results {
+        UUID row_id PK
+        VARCHAR(14) id UK "FDR-NNNNNNNNNN"
+        TIMESTAMPTZ created_at "DEFAULT now()"
+        VARCHAR(64) quota_id
+        DATE checkin_date "NOT NULL"
+        INTEGER weigh_coin "NOT NULL, CHECK >= 0"
+        NUMERIC(5,2) ccs "CHECK >= 0 AND round(ccs,2)"
+        NUMERIC(10,2) net_weight_kg "CHECK >= 0"
+        TIMESTAMPTZ fetched_at
+        TEXT fetch_status "DEFAULT not_found, CHECK IN (success, not_found, mismatch, error)"
+        JSONB source_payload "raw factory response"
+        UUID receiving_row_id FK
+    }
+
+    cane_checkins {
+        VARCHAR(64) checkin_id PK
+        TEXT booking_type
+        VARCHAR(255) booking_id
+        JSONB payment_prefs
+        VARCHAR(200) farmer_name
+        VARCHAR(200) driver_name
+        VARCHAR(16) driver_phone
+        VARCHAR(32) license_plate
+        INTEGER weigh_coin
+        TIMESTAMPTZ checkin_time
+    }
+
+    cbm_bookings {
+        VARCHAR(15) cbm_id PK
+        VARCHAR(200) farmer_name
+        VARCHAR(64) quota_id
+        VARCHAR(32) plate_no
+        VARCHAR(200) driver_name
+        VARCHAR(16) driver_phone
+        TIMESTAMPTZ scheduled_date_time
+        TEXT phase_cut_transport "status field"
+        TEXT status
+    }
+
+    receiving_notes ||--o| factory_dump_results : "receiving_row_id"
+    receiving_notes }o--|| cane_checkins : "checkin_id (read-only)"
+    receiving_notes }o--|| cbm_bookings : "booking_id (via API)"

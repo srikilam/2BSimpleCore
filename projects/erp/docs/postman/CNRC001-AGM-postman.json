@@ -1,0 +1,785 @@
+{
+  "info": {
+    "_postman_id": "cnrc001-agm-collection",
+    "name": "CNRC001 - Cane Receive API",
+    "description": "## 📘 Quick Start Guide for Frontend\n\n### Collection Overview\nThis Postman collection provides complete API coverage for the Cane Receive feature (CNRC001) including:\n- List and search receiving notes\n- Create receiving notes (auto/manual modes)\n- Get receiving note details\n- Void receiving notes with optimistic locking\n- Generate PDF with QR code\n- Export to CSV\n- QR code scanning and resolution\n- External factory dump result fetching\n\n### Environment Setup\n1. Create a new Postman environment\n2. Add variables:\n   - `base_url`: `http://localhost:8080` (development) or `https://api.2bsimple.com` (production)\n   - `auth_token`: Your JWT token from authentication\n   - `receiving_id`: Will be auto-set from create response\n   - `etag`: Will be auto-set from get detail response\n   - `idempotency_key`: Generate unique key per request\n\n### Usage Notes\n- All endpoints require authentication via Bearer token\n- Idempotency keys are required for POST create operations\n- ETag headers are required for void operations (get detail first)\n- Sample request/response bodies are provided for all endpoints\n- Frontend can use these examples to mock API responses during development\n\n### Common Workflows\n1. **Issue Receiving (Auto Mode)**: List → Get Detail → Create (auto) → PDF\n2. **Issue Receiving (Manual Fallback)**: List → Get Detail → Create (manual) → PDF\n3. **Void Receiving**: List → Get Detail (capture ETag) → Void\n4. **QR Scan**: Scan/Resolve → Get Detail → Create\n\n### Contact\nFor questions or issues: dev@2bsimple.com",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Cane Receiving",
+      "item": [
+        {
+          "name": "List Receiving Notes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings?page=1&page_size=25&sort=-updated_at",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search across plate/driver_phone/CBM|NBM/weigh_coin",
+                  "disabled": true
+                },
+                {
+                  "key": "date_from",
+                  "value": "2025-11-01",
+                  "description": "Filter by date range start (ISO-8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "date_to",
+                  "value": "2025-11-30",
+                  "description": "Filter by date range end (ISO-8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "source_type",
+                  "value": "CBM",
+                  "description": "Filter by source type (CBM|NBM|CENTRAL)",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "issued",
+                  "description": "Filter by status (draft|issued|void)",
+                  "disabled": true
+                },
+                {
+                  "key": "weigh_coin",
+                  "value": "12345",
+                  "description": "Filter by weigh coin",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default 1)"
+                },
+                {
+                  "key": "page_size",
+                  "value": "25",
+                  "description": "Items per page (default 25)"
+                },
+                {
+                  "key": "sort",
+                  "value": "-updated_at",
+                  "description": "Sort field (prefix - for descending)"
+                }
+              ]
+            },
+            "description": "Retrieve paginated list of receiving notes with search and filter capabilities. Supports filtering by date range, source type, status, and weigh coin."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings?page=1&page_size=25",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings"],
+                  "query": [
+                    {"key": "page", "value": "1"},
+                    {"key": "page_size", "value": "25"}
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"receiving_id\": \"CRN-2025-00001\",\n      \"source_type\": \"CBM\",\n      \"source_ref\": \"CBM-2025-00456\",\n      \"checkin_id\": \"CHK-2025-00123\",\n      \"checkin_time\": \"2025-11-18T08:30:00Z\",\n      \"weigh_coin\": 12345,\n      \"dump_fetch_mode\": \"auto\",\n      \"ccs\": 11.25,\n      \"net_weight_kg\": 1250.50,\n      \"status\": \"Issued\",\n      \"issued_at\": \"2025-11-18T10:30:00Z\",\n      \"issued_by\": \"usr001\",\n      \"pdf_url\": \"https://storage.2bsimple.com/pdfs/CRN-2025-00001.pdf\"\n    },\n    {\n      \"receiving_id\": \"CRN-2025-00002\",\n      \"source_type\": \"NBM\",\n      \"source_ref\": \"NBM-2025-00789\",\n      \"checkin_id\": \"CHK-2025-00124\",\n      \"checkin_time\": \"2025-11-18T09:00:00Z\",\n      \"weigh_coin\": 12346,\n      \"dump_fetch_mode\": \"manual\",\n      \"ccs\": 10.75,\n      \"net_weight_kg\": 1180.25,\n      \"status\": \"Issued\",\n      \"issued_at\": \"2025-11-18T11:00:00Z\",\n      \"issued_by\": \"usr002\",\n      \"pdf_url\": \"https://storage.2bsimple.com/pdfs/CRN-2025-00002.pdf\"\n    }\n  ],\n  \"page\": 1,\n  \"page_size\": 25,\n  \"total\": 135\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Receiving Note Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Auto-capture ETag for void operations",
+                  "if (pm.response.code === 200) {",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.environment.set('etag', etag);",
+                  "        console.log('ETag captured:', etag);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings/{{receiving_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings", "{{receiving_id}}"]
+            },
+            "description": "Retrieve full receiving note details with ETag header for optimistic locking. The ETag is automatically captured in the environment variable for void operations."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings/CRN-2025-00001",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings", "CRN-2025-00001"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"},
+                {"key": "ETag", "value": "W/\"v1-1700000000\""}
+              ],
+              "body": "{\n  \"receiving_id\": \"CRN-2025-00001\",\n  \"version\": 1,\n  \"source_type\": \"CBM\",\n  \"source_ref\": \"CBM-2025-00456\",\n  \"checkin_id\": \"CHK-2025-00123\",\n  \"checkin_time\": \"2025-11-18T08:30:00Z\",\n  \"checkin_snapshot\": {\n    \"booking_type\": \"CBM\",\n    \"farmer_name\": \"นายสมชาย ใจดี\",\n    \"driver_name\": \"นายสมศักดิ์ รักษ์ดี\",\n    \"driver_phone\": \"0812345678\",\n    \"license_plate\": \"ABC-1234\"\n  },\n  \"weigh_coin\": 12345,\n  \"dump_fetch_mode\": \"auto\",\n  \"ccs\": 11.25,\n  \"net_weight_kg\": 1250.50,\n  \"status\": \"Issued\",\n  \"issued_at\": \"2025-11-18T10:30:00Z\",\n  \"issued_by\": \"usr001\",\n  \"booking_id\": \"CBM-2025-00456\",\n  \"payment_prefs\": null,\n  \"voided_at\": null,\n  \"voided_by\": null,\n  \"void_reason\": null,\n  \"pdf_url\": \"https://storage.2bsimple.com/pdfs/CRN-2025-00001.pdf\",\n  \"created_at\": \"2025-11-18T10:00:00Z\",\n  \"updated_at\": \"2025-11-18T10:30:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Receiving Note (Auto Mode)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Auto-capture receiving_id for subsequent requests",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.receiving_id) {",
+                  "        pm.environment.set('receiving_id', response.receiving_id);",
+                  "        console.log('Receiving ID captured:', response.receiving_id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate idempotency key",
+                  "const userId = 'usr001';",
+                  "const checkinId = pm.variables.get('checkin_id') || 'CHK-2025-00123';",
+                  "const timestamp = Date.now();",
+                  "const hash = pm.variables.replaceIn('{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}');",
+                  "const idempotencyKey = `ui:${userId}:${checkinId}:${hash}`;",
+                  "pm.environment.set('idempotency_key', idempotencyKey);",
+                  "console.log('Idempotency key generated:', idempotencyKey);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{idempotency_key}}",
+                "type": "text",
+                "description": "Required for idempotent POST operations"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checkin_id\": \"CHK-2025-00123\",\n  \"source_type\": \"CBM\",\n  \"source_ref\": \"CBM-2025-00456\",\n  \"weigh_coin\": 12345,\n  \"dump_fetch_mode\": \"auto\",\n  \"ccs\": 11.25,\n  \"net_weight_kg\": 1250.50,\n  \"issuing_by\": \"usr001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings"]
+            },
+            "description": "Create and issue receiving note with auto-fetch mode (data fetched from factory system). Side-effects: frees weigh-coin, updates CBM status to awaiting_payment, generates PDF, emits event."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"checkin_id\": \"CHK-2025-00123\",\n  \"source_type\": \"CBM\",\n  \"source_ref\": \"CBM-2025-00456\",\n  \"weigh_coin\": 12345,\n  \"dump_fetch_mode\": \"auto\",\n  \"ccs\": 11.25,\n  \"net_weight_kg\": 1250.50,\n  \"issuing_by\": \"usr001\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"receiving_id\": \"CRN-2025-00001\",\n  \"status\": \"Issued\",\n  \"issued_at\": \"2025-11-18T10:30:00Z\",\n  \"issued_by\": \"usr001\",\n  \"pdf_url\": \"https://storage.2bsimple.com/pdfs/CRN-2025-00001.pdf\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Receiving Note (Manual Mode)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Auto-capture receiving_id for subsequent requests",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.receiving_id) {",
+                  "        pm.environment.set('receiving_id', response.receiving_id);",
+                  "        console.log('Receiving ID captured:', response.receiving_id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate idempotency key",
+                  "const userId = 'usr002';",
+                  "const checkinId = pm.variables.get('checkin_id') || 'CHK-2025-00124';",
+                  "const hash = pm.variables.replaceIn('{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}');",
+                  "const idempotencyKey = `ui:${userId}:${checkinId}:${hash}`;",
+                  "pm.environment.set('idempotency_key', idempotencyKey);",
+                  "console.log('Idempotency key generated:', idempotencyKey);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{idempotency_key}}",
+                "type": "text",
+                "description": "Required for idempotent POST operations"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checkin_id\": \"CHK-2025-00124\",\n  \"source_type\": \"NBM\",\n  \"source_ref\": \"NBM-2025-00789\",\n  \"weigh_coin\": 12346,\n  \"dump_fetch_mode\": \"manual\",\n  \"ccs\": 10.75,\n  \"net_weight_kg\": 1180.25,\n  \"issuing_by\": \"usr002\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings"]
+            },
+            "description": "Create and issue receiving note with manual mode (fallback when factory auto-fetch fails). Staff enters CCS and net weight manually with 2-decimal validation. Same side-effects as auto mode."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"checkin_id\": \"CHK-2025-00124\",\n  \"source_type\": \"NBM\",\n  \"source_ref\": \"NBM-2025-00789\",\n  \"weigh_coin\": 12346,\n  \"dump_fetch_mode\": \"manual\",\n  \"ccs\": 10.75,\n  \"net_weight_kg\": 1180.25,\n  \"issuing_by\": \"usr002\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"receiving_id\": \"CRN-2025-00002\",\n  \"status\": \"Issued\",\n  \"issued_at\": \"2025-11-18T11:00:00Z\",\n  \"issued_by\": \"usr002\",\n  \"pdf_url\": \"https://storage.2bsimple.com/pdfs/CRN-2025-00002.pdf\"\n}"
+            },
+            {
+              "name": "Validation Error (Invalid CCS)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"checkin_id\": \"CHK-2025-00124\",\n  \"source_type\": \"NBM\",\n  \"weigh_coin\": 12346,\n  \"dump_fetch_mode\": \"manual\",\n  \"ccs\": -5.123,\n  \"net_weight_kg\": 1180.25,\n  \"issuing_by\": \"usr002\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"code\": \"CCS_OR_WEIGHT_INVALID\",\n  \"message\": \"CCS must be numeric with exactly 2 decimal places and >= 0\",\n  \"details\": [\n    {\n      \"field\": \"ccs\",\n      \"issue\": \"invalid_format\"\n    }\n  ],\n  \"trace_id\": \"trace-xyz789\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Void Receiving Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{etag}}",
+                "type": "text",
+                "description": "Required ETag from GET detail (auto-captured)"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"void_reason\": \"ข้อมูลน้ำหนักไม่ถูกต้องจากโรงงาน ต้องออกใบใหม่\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings/{{receiving_id}}/void",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings", "{{receiving_id}}", "void"]
+            },
+            "description": "Void an issued receiving note with reason tracking (min 5 chars). Requires status=Issued and not linked to payment. Reverts CBM status to awaiting_dump_result and emits event."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {"key": "If-Match", "value": "W/\"v1-1700000000\""}
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"void_reason\": \"ข้อมูลน้ำหนักไม่ถูกต้องจากโรงงาน ต้องออกใบใหม่\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings/CRN-2025-00001/void",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings", "CRN-2025-00001", "void"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"receiving_id\": \"CRN-2025-00001\",\n  \"status\": \"Void\",\n  \"voided_at\": \"2025-11-18T11:30:00Z\",\n  \"voided_by\": \"usr003\",\n  \"void_reason\": \"ข้อมูลน้ำหนักไม่ถูกต้องจากโรงงาน ต้องออกใบใหม่\"\n}"
+            },
+            {
+              "name": "Precondition Failed (ETag Mismatch)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {"key": "If-Match", "value": "W/\"v1-1699999999\""}
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"void_reason\": \"test void\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings/CRN-2025-00001/void",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings", "CRN-2025-00001", "void"]
+                }
+              },
+              "status": "Precondition Failed",
+              "code": 412,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"code\": \"PRECONDITION_FAILED\",\n  \"message\": \"Data has been modified by another user. Please refresh and try again.\",\n  \"details\": [\n    {\n      \"field\": \"version\",\n      \"issue\": \"etag_mismatch\"\n    }\n  ],\n  \"trace_id\": \"trace-ghi789\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Generate PDF",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings/{{receiving_id}}/pdf",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings", "{{receiving_id}}", "pdf"]
+            },
+            "description": "Generate A4 PDF with QR code containing receiving_id and return signed URL for download/viewing."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings/CRN-2025-00001/pdf",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings", "CRN-2025-00001", "pdf"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"receiving_id\": \"CRN-2025-00001\",\n  \"pdf_url\": \"https://storage.2bsimple.com/pdfs/CRN-2025-00001.pdf?signed=abc123&expires=1700010000\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/agm/cane-receivings/export?date_from=2025-11-01&date_to=2025-11-30&status=issued",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "agm", "cane-receivings", "export"],
+              "query": [
+                {
+                  "key": "date_from",
+                  "value": "2025-11-01",
+                  "description": "Filter by date range start"
+                },
+                {
+                  "key": "date_to",
+                  "value": "2025-11-30",
+                  "description": "Filter by date range end"
+                },
+                {
+                  "key": "status",
+                  "value": "issued",
+                  "description": "Filter by status"
+                },
+                {
+                  "key": "source_type",
+                  "value": "",
+                  "description": "Filter by source type",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Export receiving notes to CSV with current filters applied. Returns synchronous CSV download with Thai column headers."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/agm/cane-receivings/export?status=issued",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "agm", "cane-receivings", "export"],
+                  "query": [
+                    {"key": "status", "value": "issued"}
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "csv",
+              "header": [
+                {"key": "Content-Type", "value": "text/csv"},
+                {"key": "Content-Disposition", "value": "attachment; filename=\"cane-receivings-2025-11-18.csv\""}
+              ],
+              "body": "เลขที่ใบรับ,ประเภท,อ้างอิง,เช็คอิน,โควต้า,ทะเบียน,ชื่อคนขับ,เบอร์คนขับ,เหรียญชั่ง,CCS,น้ำหนักสุทธิ,โหมด,ออกใบเมื่อ,สถานะ,สร้างโดย,สร้างเมื่อ\nCRN-2025-00001,CBM,CBM-2025-00456,CHK-2025-00123,Q001,ABC-1234,นายสมศักดิ์ รักษ์ดี,0812345678,12345,11.25,1250.50,auto,2025-11-18T10:30:00Z,Issued,usr001,2025-11-18T10:00:00Z\nCRN-2025-00002,NBM,NBM-2025-00789,CHK-2025-00124,Q002,DEF-5678,นายสมชาย ใจดี,0898765432,12346,10.75,1180.25,manual,2025-11-18T11:00:00Z,Issued,usr002,2025-11-18T10:30:00Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "QR Scanner",
+      "item": [
+        {
+          "name": "Resolve QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qr_payload\": \"CHK:CHK-2025-00123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/scan/resolve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scan", "resolve"]
+            },
+            "description": "Resolve QR code payload to checkin_id or receiving_id for quick navigation to Issue Drawer."
+          },
+          "response": [
+            {
+              "name": "Resolved to Check-in",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"qr_payload\": \"CHK:CHK-2025-00123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/scan/resolve",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "scan", "resolve"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"checkin_id\": \"CHK-2025-00123\",\n  \"resolved_type\": \"checkin\"\n}"
+            },
+            {
+              "name": "Resolved to Receiving",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"qr_payload\": \"CRN-2025-00001\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/scan/resolve",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "scan", "resolve"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"receiving_id\": \"CRN-2025-00001\",\n  \"resolved_type\": \"receiving\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "External Factory",
+      "item": [
+        {
+          "name": "Fetch Factory Dump Result",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text",
+                "description": "Integration token for factory API"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ext/factory/dump?quota_id=Q001&date=2025-11-18&weigh_coin=12345",
+              "host": ["{{base_url}}"],
+              "path": ["ext", "factory", "dump"],
+              "query": [
+                {
+                  "key": "quota_id",
+                  "value": "Q001",
+                  "description": "Quota ID (optional for CBM/NBM, not used for CENTRAL)"
+                },
+                {
+                  "key": "date",
+                  "value": "2025-11-18",
+                  "description": "Check-in date (ISO-8601, required)"
+                },
+                {
+                  "key": "weigh_coin",
+                  "value": "12345",
+                  "description": "Weigh coin number (required)"
+                }
+              ]
+            },
+            "description": "External factory API to auto-fetch CCS and net weight data. Used in auto-fetch mode with 3 retry attempts and exponential backoff."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/ext/factory/dump?quota_id=Q001&date=2025-11-18&weigh_coin=12345",
+                  "host": ["{{base_url}}"],
+                  "path": ["ext", "factory", "dump"],
+                  "query": [
+                    {"key": "quota_id", "value": "Q001"},
+                    {"key": "date", "value": "2025-11-18"},
+                    {"key": "weigh_coin", "value": "12345"}
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"quota_id\": \"Q001\",\n  \"checkin_date\": \"2025-11-18\",\n  \"weigh_coin\": 12345,\n  \"ccs\": 11.25,\n  \"net_weight_kg\": 1250.50,\n  \"fetched_at\": \"2025-11-18T10:00:00Z\",\n  \"fetch_status\": \"success\"\n}"
+            },
+            {
+              "name": "Factory Result Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/ext/factory/dump?quota_id=Q999&date=2025-11-18&weigh_coin=99999",
+                  "host": ["{{base_url}}"],
+                  "path": ["ext", "factory", "dump"],
+                  "query": [
+                    {"key": "quota_id", "value": "Q999"},
+                    {"key": "date", "value": "2025-11-18"},
+                    {"key": "weigh_coin", "value": "99999"}
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"code\": \"FACTORY_RESULT_NOT_FOUND\",\n  \"message\": \"No dump result found for the given lookup key\",\n  \"details\": [],\n  \"trace_id\": \"trace-mno345\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "receiving_id",
+      "value": "CRN-2025-00001",
+      "type": "string"
+    },
+    {
+      "key": "etag",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idempotency_key",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
